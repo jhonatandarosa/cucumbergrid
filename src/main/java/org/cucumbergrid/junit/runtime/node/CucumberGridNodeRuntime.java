@@ -55,7 +55,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
          send(new Message(MessageID.REQUEST_FEATURE));
         // server has features to execute
-        while (true) {
+        while (hasFeatures) {
             // process
             client.process();
             try {
@@ -74,7 +74,10 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     private void send(Message message) {
         try {
             client.send(IOUtils.serialize(message));
+            Thread.sleep(100); // FIXME ???
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }

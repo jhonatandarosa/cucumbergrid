@@ -111,6 +111,7 @@ public class CucumberGridServer implements Runnable {
             // nothing to read
             // close channel
             //msg = key.attachment()+" left the chat.\n";
+            System.out.println("nothing to read");
             channel.close();
         } else {
             // msg = key.attachment()+": "+sb.toString();
