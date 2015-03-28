@@ -1,5 +1,9 @@
 package org.cucumbergrid.junit.runtime.node;
 
+import org.cucumbergrid.junit.runner.CucumberGridNode;
+
+import java.net.ConnectException;
+import java.net.SocketOptions;
 import java.util.Iterator;
 
 import java.io.ByteArrayOutputStream;
@@ -23,24 +27,55 @@ public class CucumberGridClient implements Runnable {
     private CucumberGridClientHandler handler;
     private String hubAddress;
     private int port;
+    private int selectTimeout;
+    private int connectTimeout;
+    private int maxRetries;
+    private int retries;
 
-    public CucumberGridClient(String hubAddress, int port) {
+    public CucumberGridClient(CucumberGridNode config) {
+        this(config.hub(), config.port(), config.selectTimeout(), config.connectTimeout(), config.maxRetries());
+    }
+
+    public CucumberGridClient(String hubAddress, int port, int selectTimeout, int connectTimeout, int maxRetries) {
         this.hubAddress = hubAddress;
         this.port = port;
+        this.selectTimeout = selectTimeout;
+        this.connectTimeout = connectTimeout;
+        this.maxRetries = maxRetries;
     }
 
     public void init() {
         try {
-            selector = Selector.open();
-            channel = SocketChannel.open();
-            channel.configureBlocking(false);
-
-            channel.register(selector, SelectionKey.OP_CONNECT);
-            channel.connect(new InetSocketAddress(hubAddress, port));
+            tryConnect();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+    }
+
+    private void tryConnect() throws IOException {
+        tryConnect(0);
+    }
+
+    private void tryConnect(int delay) throws IOException {
+        if (retries++ > maxRetries) {
+            System.out.println("Max retries achieved");
+            return;
+        }
+        if (delay > 0) {
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException e1) {
+                e1.printStackTrace();
+            }
+        }
+        System.out.println("Trying to connect to " + hubAddress + ":" + port);
+        selector = Selector.open();
+        channel = SocketChannel.open();
+        channel.configureBlocking(false);
+
+        channel.register(selector, SelectionKey.OP_CONNECT);
+        channel.connect(new InetSocketAddress(hubAddress, port));
     }
 
     public void setHandler(CucumberGridClientHandler handler) {
@@ -49,17 +84,28 @@ public class CucumberGridClient implements Runnable {
 
     private void handleConnect(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
+
         if (channel.isConnectionPending()) {
-            channel.finishConnect();
+            System.out.println("Connection pending...");
+            try {
+                channel.finishConnect();
+            } catch (ConnectException e) {
+                // ignore
+                channel.close();
+                tryConnect(connectTimeout);
+                return;
+            }
         }
         channel.configureBlocking(false);
         channel.register(selector, SelectionKey.OP_READ);
         System.out.println("Connected");
     }
 
+
+
     public void process() {
         try {
-            selector.select(1000);
+            selector.select(selectTimeout);
 
             Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
 
@@ -70,11 +116,10 @@ public class CucumberGridClient implements Runnable {
                 if (!key.isValid()) continue;
 
                 if (key.isConnectable()) {
-                    System.out.println("I am connected to the server");
                     handleConnect(key);
                 }
 
-                if (key.isReadable()) {
+                if (key.isValid() && key.isReadable()) {
                     handleRead(key);
                 }
             }
@@ -133,6 +178,10 @@ public class CucumberGridClient implements Runnable {
 
     public boolean isConnectionPending() {
         return channel.isConnectionPending();
+    }
+
+    public boolean isConnected() {
+        return channel.isConnected();
     }
 
     public void shutdown() {

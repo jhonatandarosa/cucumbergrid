@@ -1,17 +1,28 @@
 package org.cucumbergrid.junit.runtime.hub;
 
+import cucumber.api.CucumberOptions;
+import cucumber.api.junit.Cucumber;
+import cucumber.runtime.RuntimeOptions;
+import cucumber.runtime.RuntimeOptionsFactory;
+import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
+import org.cucumbergrid.junit.runtime.CucumberUtils;
 import org.cucumbergrid.junit.runtime.common.IOUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
 import org.junit.runner.Description;
+import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunNotifier;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.channels.SelectionKey;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.logging.Level;
 
 public class CucumberGridHubRuntime extends CucumberGridRuntime implements CucumberGridServerHandler {
 
@@ -19,21 +30,23 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private CucumberGridServer server;
     private LinkedList<CucumberFeature> featuresToExecute;
     private List<CucumberFeature> featuresExecuted;
-    private Map<Description, CucumberFeature> descriptionCucumberFeatureMap;
     private RunNotifier notifier;
+    private JUnitReporter jUnitReporter;
 
     public CucumberGridHubRuntime(Class clazz) {
         super(clazz);
 
         CucumberGridHub config = (CucumberGridHub) clazz.getDeclaredAnnotation(CucumberGridHub.class);
-        server = new CucumberGridServer(config.port());
+        server = new CucumberGridServer(config);
         server.setHandler(this);
         featuresToExecute = new LinkedList<>(cucumberFeatures);
         featuresExecuted = new ArrayList<>();
-        descriptionCucumberFeatureMap = new HashMap<>();
-        for (CucumberFeature feature : cucumberFeatures) {
-            descriptionCucumberFeatureMap.put(getFeatureDescription(feature), feature);
-        }
+
+        ClassLoader classLoader = clazz.getClassLoader();
+        RuntimeOptionsFactory runtimeOptionsFactory = new RuntimeOptionsFactory(clazz, new Class[]{CucumberOptions.class, Cucumber.Options.class});
+        RuntimeOptions runtimeOptions = runtimeOptionsFactory.create();
+
+        jUnitReporter = new JUnitReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
     }
 
     @Override
@@ -41,7 +54,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         if (description == null) {
             description = Description.createSuiteDescription(clazz.getName());
             for (CucumberFeature cucumberFeature : cucumberFeatures) {
-                description.addChild(getFeatureDescription(cucumberFeature));
+                description.addChild(getDescription(cucumberFeature));
             }
         }
         return description;
@@ -59,20 +72,21 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                logger.log(Level.SEVERE, e.getMessage(), e);
             }
         }
 
+        // wait all results
+
         // when all features finished, send a shutdown message
         broadcast(new Message(MessageID.SHUTDOWN));
-        // wait some time
-//        try {
-//            Thread.sleep(100);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
+
 
         server.shutdown();
+
+        jUnitReporter.done();
+        jUnitReporter.close();
+//        runtime.printSummary();
     }
 
     @Override
@@ -87,7 +101,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 //                System.out.println("response sent");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 
@@ -95,7 +109,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         try {
             server.send(key, IOUtils.serialize(message));
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 
@@ -103,7 +117,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         try {
             server.broadcast(IOUtils.serialize(message));
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 
@@ -112,24 +126,56 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             case REQUEST_FEATURE:
                 return processRequestFeature();
             case TEST_STARTED:
-                try {
-                    Description description = IOUtils.deserialize(message.getData());
-                    notifier.fireTestStarted(description);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                onTestStarted(message);
                 break;
             case TEST_FINISHED:
-                try {
-                    Description description = IOUtils.deserialize(message.getData());
-                    featuresExecuted.add(descriptionCucumberFeatureMap.get(description));
-                    notifier.fireTestFinished(description);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                onTestFinished(message);
                 break;
+            case TEST_IGNORED:
+                onTestIgnored(message);
+                break;
+            case TEST_FAILURE:
+                onTestFailure(message);
+                break;
+            case TEST_ASSUMPTION_FAILURE:
+                onTestAssumptionFailure(message);
+                break;
+            default:
+                System.out.println("Unknown message: " + message.getID() + " " + message.getData());
+
         }
         return null;
+    }
+
+    private void onTestAssumptionFailure(Message message) {
+        Failure failure = message.getData();
+        notifier.fireTestAssumptionFailed(failure);
+    }
+
+    private void onTestFailure(Message message) {
+        Failure failure = message.getData();
+        notifier.fireTestFailure(failure);
+    }
+
+    private void onTestIgnored(Message message) {
+        Description description = getDescriptionByUniqueID(message.getData());
+        notifier.fireTestIgnored(description);
+    }
+
+    private void onTestFinished(Message message) {
+        Serializable uniqueID = message.getData();
+        Description description = getDescriptionByUniqueID(uniqueID);
+        notifier.fireTestFinished(description);
+
+        CucumberFeature feature = getFeatureByID(uniqueID);
+        if (feature != null) {
+            featuresExecuted.add(feature);
+        }
+    }
+
+    private void onTestStarted(Message message) {
+        Description description = getDescriptionByUniqueID(message.getData());
+        notifier.fireTestStarted(description);
     }
 
     private Message processRequestFeature() {
@@ -137,7 +183,6 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             return new Message(MessageID.NO_MORE_FEATURES);
         }
         CucumberFeature feature = featuresToExecute.poll();
-        String path = feature.getPath();
-        return new Message(MessageID.EXECUTE_FEATURE, path.getBytes());
+        return new Message(MessageID.EXECUTE_FEATURE, CucumberUtils.getUniqueID(feature));
     }
 }

@@ -1,5 +1,7 @@
 package org.cucumbergrid.junit.runtime.hub;
 
+import org.cucumbergrid.junit.runner.CucumberGridHub;
+
 import java.util.Iterator;
 
 import java.io.ByteArrayOutputStream;
@@ -29,6 +31,15 @@ public class CucumberGridServer implements Runnable {
 
     public CucumberGridServer(int port) {
         this.port = port;
+    }
+
+    public CucumberGridServer(int port, int selectTimeout) {
+        this.port = port;
+        this.selectTimeout = selectTimeout;
+    }
+
+    public CucumberGridServer(CucumberGridHub config) {
+        this(config.port(), config.selectTimeout());
     }
 
     public void setHandler(CucumberGridServerHandler handler) {

@@ -1,22 +1,22 @@
 package org.cucumbergrid.junit.runtime.common;
 
-import java.io.*;
+import java.io.Serializable;
 
-public class Message implements Serializable {
+public class FormatMessage implements Serializable {
 
-    private MessageID id;
+    private FormatMessageID id;
     private Serializable data;
 
-    public Message(MessageID id) {
+    public FormatMessage(FormatMessageID id) {
         this(id, null);
     }
 
-    public Message(MessageID id, Serializable data) {
+    public FormatMessage(FormatMessageID id, Serializable data) {
         this.id = id;
         this.data = data;
     }
 
-    public MessageID getID() {
+    public FormatMessageID getID() {
         return id;
     }
 

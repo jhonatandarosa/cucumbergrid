@@ -8,4 +8,5 @@ import java.lang.annotation.*;
 public @interface CucumberGridHub {
 
     int port() default 26000;
+    int selectTimeout() default 1000;
 }

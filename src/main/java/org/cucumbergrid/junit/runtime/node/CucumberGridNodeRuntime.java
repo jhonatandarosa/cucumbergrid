@@ -2,48 +2,52 @@ package org.cucumbergrid.junit.runtime.node;
 
 import cucumber.api.CucumberOptions;
 import cucumber.api.junit.Cucumber;
-import cucumber.runtime.*;
+import cucumber.runtime.ClassFinder;
 import cucumber.runtime.Runtime;
+import cucumber.runtime.RuntimeOptions;
+import cucumber.runtime.RuntimeOptionsFactory;
 import cucumber.runtime.io.MultiLoader;
 import cucumber.runtime.io.ResourceLoader;
 import cucumber.runtime.io.ResourceLoaderClassFinder;
 import cucumber.runtime.junit.ExecutionUnitRunner;
-import cucumber.runtime.junit.FeatureRunner;
 import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
 import cucumber.runtime.model.CucumberTagStatement;
+import gherkin.formatter.Formatter;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
+import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
+import org.cucumbergrid.junit.runtime.CucumberUtils;
 import org.cucumbergrid.junit.runtime.common.IOUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
 import org.junit.runner.Description;
-import org.junit.runner.Result;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.InitializationError;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.nio.channels.SelectionKey;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 
 public class CucumberGridNodeRuntime extends CucumberGridRuntime implements CucumberGridClientHandler {
 
     private CucumberGridClient client;
     private Description description;
-    private boolean hasFeatures;
     private RunNotifier currentNotifier;
     private final JUnitReporter jUnitReporter;
     private final Runtime runtime;
+    private Formatter formatter;
 
     public CucumberGridNodeRuntime(Class clazz) throws IOException, InitializationError {
         super(clazz);
         CucumberGridNode config = (CucumberGridNode) clazz.getDeclaredAnnotation(CucumberGridNode.class);
 
-        client = new CucumberGridClient(config.hub(), config.port());
+        client = new CucumberGridClient(config);
         client.setHandler(this);
 
         ClassLoader classLoader = clazz.getClassLoader();
@@ -53,13 +57,14 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         ResourceLoader resourceLoader = new MultiLoader(classLoader);
         runtime = createRuntime(resourceLoader, classLoader, runtimeOptions);
 
-        jUnitReporter = new JUnitReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
+        formatter = new CucumberGridRemoteFormatter(client);
+        jUnitReporter = new JUnitReporter(runtimeOptions.reporter(classLoader), formatter, runtimeOptions.isStrict());
     }
 
     /**
      * Create the Runtime. Can be overridden to customize the runtime or backend.
      */
-    protected cucumber.runtime.Runtime createRuntime(ResourceLoader resourceLoader, ClassLoader classLoader,
+    protected Runtime createRuntime(ResourceLoader resourceLoader, ClassLoader classLoader,
                                                      RuntimeOptions runtimeOptions) throws InitializationError, IOException {
         ClassFinder classFinder = new ResourceLoaderClassFinder(resourceLoader, classLoader);
         return new Runtime(resourceLoader, classFinder, classLoader, runtimeOptions);
@@ -80,32 +85,31 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         notifier.addListener(new CucumberGridRunListener());
         client.init();
 
-        hasFeatures = true;
-
         while (client.isConnectionPending()) {
             client.process();
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                logger.log(Level.SEVERE, e.getMessage(), e);
             }
         }
+        if (!client.isConnected()) return;
 
          send(new Message(MessageID.REQUEST_FEATURE));
         // server has features to execute
-        while (hasFeatures) {
+        while (client.isConnected()) {
             // process
             client.process();
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                logger.log(Level.SEVERE, e.getMessage(), e);
             }
         }
 
-        // wait for all features to finish
-
-        client.shutdown();
+        jUnitReporter.done();
+        jUnitReporter.close();
+        runtime.printSummary();
     }
 
     private void send(Message message) {
@@ -113,9 +117,9 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
             client.send(IOUtils.serialize(message));
             Thread.sleep(100); // FIXME ???
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, e.getMessage(), e);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 
@@ -126,49 +130,43 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
                 break;
             case NO_MORE_FEATURES:
                 System.out.println("no more features");
-                hasFeatures = false;
                 break;
             case SHUTDOWN:
                 System.out.println("Shutdown received...");
-                hasFeatures = false;
+                client.shutdown();
                 break;
         }
     }
 
     private void onExecuteFeature(Message message) throws InitializationError {
-        String path = new String(message.getData());
-        System.out.println("Execute feature " + path);
-        CucumberFeature cucumberFeature = getFeatureByPath(path);
+        Serializable uniqueID = message.getData();
+        System.out.println("Execute feature " + uniqueID);
+        CucumberFeature cucumberFeature = getFeatureByID(uniqueID);
         if (cucumberFeature == null) {
-            throw new IllegalArgumentException("Unknown feature: " + path);
+            throw new IllegalArgumentException("Unknown feature: " + cucumberFeature.getPath());
         }
 
         jUnitReporter.uri(cucumberFeature.getPath());
         jUnitReporter.feature(cucumberFeature.getGherkinFeature());
+        Description featureDescription = getDescription(cucumberFeature);
+        currentNotifier.fireTestStarted(featureDescription);
 
         List<CucumberTagStatement> featureElements = cucumberFeature.getFeatureElements();
         for (CucumberTagStatement cucumberTagStatement : featureElements) {
             if (cucumberTagStatement instanceof CucumberScenario) {
                 CucumberScenario cucumberScenario = (CucumberScenario)cucumberTagStatement;
-                ExecutionUnitRunner runner = new ExecutionUnitRunner(runtime, cucumberScenario, jUnitReporter);
+                ExecutionUnitRunner runner = new CucumberGridExecutionUnitRunner(this, runtime, cucumberScenario, jUnitReporter);
                 runner.run(currentNotifier);
             }
         }
+        currentNotifier.fireTestFinished(featureDescription);
 
         jUnitReporter.eof();
+
 
         System.out.println("Requesting new feature");
         send(new Message(MessageID.REQUEST_FEATURE));
         System.out.println("Feature requested");
-    }
-
-    private CucumberFeature getFeatureByPath(String path) {
-        for (CucumberFeature feature : cucumberFeatures) {
-            if (feature.getPath().equals(path)) {
-                return feature;
-            }
-        }
-        return null;
     }
 
     @Override
@@ -177,55 +175,48 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
             Message message = IOUtils.deserialize(data);
             process(message);
         } catch (IOException e) {
-            e.printStackTrace();
-        } catch (InitializationError initializationError) {
-            initializationError.printStackTrace();
+            logger.log(Level.SEVERE, e.getMessage(), e);
+        } catch (InitializationError e) {
+            logger.log(Level.SEVERE, e.getMessage(), e);
         }
     }
 
     public class CucumberGridRunListener extends RunListener {
+        void sendMessage(MessageID messageID, Description description) {
+
+            Serializable uniqueID = CucumberUtils.getDescriptionUniqueID(description);
+            //new Throwable(uniqueID.toString()).printStackTrace();
+            send(new Message(messageID, uniqueID));
+
+        }
+
+        void sendMessage(MessageID messageID, Serializable value) {
+            send(new Message(messageID, value));
+        }
 
         @Override
         public void testStarted(Description description) throws Exception {
-            try {
-                send(new Message(MessageID.TEST_STARTED, IOUtils.serialize(description)));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            sendMessage(MessageID.TEST_STARTED, description);
         }
 
         @Override
         public void testFinished(Description description) throws Exception {
-            try {
-                send(new Message(MessageID.TEST_FINISHED, IOUtils.serialize(description)));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public void testRunStarted(Description description) throws Exception {
-            System.out.println("super.testRunStarted(description)");
-        }
-
-        @Override
-        public void testRunFinished(Result result) throws Exception {
-            System.out.println("super.testRunFinished(result)");
+            sendMessage(MessageID.TEST_FINISHED, description);
         }
 
         @Override
         public void testIgnored(Description description) throws Exception {
-            System.out.println("super.testIgnored(description)");
+            sendMessage(MessageID.TEST_IGNORED, description);
         }
 
         @Override
         public void testFailure(Failure failure) throws Exception {
-            System.out.println("super.testFailure(failure)");
+            sendMessage(MessageID.TEST_FAILURE, failure);
         }
 
         @Override
         public void testAssumptionFailure(Failure failure) {
-            System.out.println("super.testAssumptionFailure(failure)");
+            sendMessage(MessageID.TEST_ASSUMPTION_FAILURE, failure);
         }
     }
 }
