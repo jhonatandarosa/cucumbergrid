@@ -7,4 +7,6 @@ public enum MessageID {
 
     TEST_STARTED,
     TEST_FINISHED,
+
+    SHUTDOWN,
 }

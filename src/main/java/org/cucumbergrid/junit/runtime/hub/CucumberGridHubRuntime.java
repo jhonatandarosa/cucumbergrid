@@ -11,13 +11,15 @@ import org.junit.runner.notification.RunNotifier;
 
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.util.LinkedList;
+import java.util.*;
 
 public class CucumberGridHubRuntime extends CucumberGridRuntime implements CucumberGridServerHandler {
 
     private Description description;
     private CucumberGridServer server;
     private LinkedList<CucumberFeature> featuresToExecute;
+    private List<CucumberFeature> featuresExecuted;
+    private Map<Description, CucumberFeature> descriptionCucumberFeatureMap;
     private RunNotifier notifier;
 
     public CucumberGridHubRuntime(Class clazz) {
@@ -26,7 +28,12 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         CucumberGridHub config = (CucumberGridHub) clazz.getDeclaredAnnotation(CucumberGridHub.class);
         server = new CucumberGridServer(config.port());
         server.setHandler(this);
-        featuresToExecute = new LinkedList<CucumberFeature>(cucumberFeatures);
+        featuresToExecute = new LinkedList<>(cucumberFeatures);
+        featuresExecuted = new ArrayList<>();
+        descriptionCucumberFeatureMap = new HashMap<>();
+        for (CucumberFeature feature : cucumberFeatures) {
+            descriptionCucumberFeatureMap.put(getFeatureDescription(feature), feature);
+        }
     }
 
     @Override
@@ -46,7 +53,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         server.init();
 
         // has more features
-        while (!featuresToExecute.isEmpty()) {
+        while (featuresExecuted.size() != cucumberFeatures.size()) {
             // process
             server.process();
             try {
@@ -56,10 +63,16 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             }
         }
 
-        // wait for all features to finish
+        // when all features finished, send a shutdown message
+        broadcast(new Message(MessageID.SHUTDOWN));
+        // wait some time
+//        try {
+//            Thread.sleep(100);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
 
-
-        //server.shutdown();
+        server.shutdown();
     }
 
     @Override
@@ -67,12 +80,28 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         try {
             Message message = IOUtils.deserialize(data);
             Message response = process(message);
-            System.out.println("Data received " + message.getID());
-            System.out.println("Response " + response);
+//            System.out.println("Data received " + message.getID());
+//            System.out.println("Response " + response);
             if (response != null) {
-                server.send(key, IOUtils.serialize(response));
-                System.out.println("response sent");
+                send(key, response);
+//                System.out.println("response sent");
             }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void send(SelectionKey key, Message message) {
+        try {
+            server.send(key, IOUtils.serialize(message));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void broadcast(Message message) {
+        try {
+            server.broadcast(IOUtils.serialize(message));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -93,6 +122,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             case TEST_FINISHED:
                 try {
                     Description description = IOUtils.deserialize(message.getData());
+                    featuresExecuted.add(descriptionCucumberFeatureMap.get(description));
                     notifier.fireTestFinished(description);
                 } catch (IOException e) {
                     e.printStackTrace();

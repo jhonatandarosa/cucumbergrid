@@ -134,4 +134,12 @@ public class CucumberGridClient implements Runnable {
     public boolean isConnectionPending() {
         return channel.isConnectionPending();
     }
+
+    public void shutdown() {
+        try {
+            channel.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }
