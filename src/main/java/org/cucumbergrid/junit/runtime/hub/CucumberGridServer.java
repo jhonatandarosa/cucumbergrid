@@ -13,11 +13,6 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
-/**
- * @author Jhonatan da Rosa <br>
- *         Dígitro - 26/03/15 <br>
- *         <a href="mailto:jhonatan.rosa@digitro.com.br">jhonatan.rosa@digitro.com.br</a>
- */
 public class CucumberGridServer implements Runnable {
 
     public final static String ADDRESS = "127.0.0.1";

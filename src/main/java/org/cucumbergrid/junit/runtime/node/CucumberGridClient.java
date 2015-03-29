@@ -14,11 +14,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
-/**
- * @author Jhonatan da Rosa <br>
- *         Dígitro - 26/03/15 <br>
- *         <a href="mailto:jhonatan.rosa@digitro.com.br">jhonatan.rosa@digitro.com.br</a>
- */
 public class CucumberGridClient implements Runnable {
 
     private Selector selector;

@@ -5,13 +5,9 @@ import java.io.Serializable;
 public class FormatMessage implements Serializable {
 
     private FormatMessageID id;
-    private Serializable data;
+    private Serializable[] data;
 
-    public FormatMessage(FormatMessageID id) {
-        this(id, null);
-    }
-
-    public FormatMessage(FormatMessageID id, Serializable data) {
+    public FormatMessage(FormatMessageID id, Serializable ... data) {
         this.id = id;
         this.data = data;
     }
@@ -20,7 +16,11 @@ public class FormatMessage implements Serializable {
         return id;
     }
 
-    public <T extends Serializable> T getData() {
-        return (T)data;
+    public Serializable[] getData() {
+        return data;
+    }
+
+    public <T extends Serializable> T getData(int index) {
+        return (T)data[index];
     }
 }

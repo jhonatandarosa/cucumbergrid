@@ -14,5 +14,6 @@ public enum MessageID {
     TEST_ASSUMPTION_FAILURE,
 
     RESULTS,
+    FORMAT,
     SHUTDOWN,
 }
