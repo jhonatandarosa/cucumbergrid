@@ -9,6 +9,7 @@ import cucumber.runtime.model.CucumberFeature;
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
+import org.cucumbergrid.junit.runtime.common.FormatMessage;
 import org.cucumbergrid.junit.runtime.common.IOUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
@@ -32,6 +33,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private List<CucumberFeature> featuresExecuted;
     private RunNotifier notifier;
     private JUnitReporter jUnitReporter;
+    private CucumberGridServerFormatterHandler formatterHandler;
 
     public CucumberGridHubRuntime(Class clazz) {
         super(clazz);
@@ -47,6 +49,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         RuntimeOptions runtimeOptions = runtimeOptionsFactory.create();
 
         jUnitReporter = new JUnitReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
+        formatterHandler = new CucumberGridServerFormatterHandler(jUnitReporter);
     }
 
     @Override
@@ -140,11 +143,19 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             case TEST_ASSUMPTION_FAILURE:
                 onTestAssumptionFailure(message);
                 break;
+            case FORMAT:
+                onFormatMessage(message);
+                break;
             default:
                 System.out.println("Unknown message: " + message.getID() + " " + message.getData());
 
         }
         return null;
+    }
+
+    private void onFormatMessage(Message message) {
+        FormatMessage formatMessage = message.getData();
+        formatterHandler.onFormatMessage(formatMessage);
     }
 
     private void onTestAssumptionFailure(Message message) {
