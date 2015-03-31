@@ -22,11 +22,6 @@ public class CucumberGridRemoteFormatter implements Formatter {
         Message msg = new Message(MessageID.FORMAT, formatMsg);
         try {
             client.send(IOUtils.serialize(msg));
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         } catch (IOException e) {
             e.printStackTrace();
         }

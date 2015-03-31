@@ -115,10 +115,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     private void send(Message message) {
         try {
             client.send(IOUtils.serialize(message));
-            Thread.sleep(100); // FIXME ???
         } catch (IOException e) {
-            logger.log(Level.SEVERE, e.getMessage(), e);
-        } catch (InterruptedException e) {
             logger.log(Level.SEVERE, e.getMessage(), e);
         }
     }

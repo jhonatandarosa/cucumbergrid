@@ -21,7 +21,7 @@ public class CucumberGridServer implements Runnable {
     private int selectTimeout = 1000;
     private ServerSocketChannel serverChannel;
     private Selector selector;
-    private ByteBuffer readBuffer = ByteBuffer.allocate(256);
+    private ByteBuffer readSizeBuffer = ByteBuffer.allocate(4);
     private CucumberGridServerHandler handler;
 
     public CucumberGridServer(int port) {
@@ -102,16 +102,24 @@ public class CucumberGridServer implements Runnable {
 
     private void handleRead(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-        readBuffer.clear();
-        int read = 0;
-        while ((read = channel.read(readBuffer)) > 0) {
-            readBuffer.flip();
-            byte[] bytes = new byte[readBuffer.limit()];
-            readBuffer.get(bytes);
-            baos.write(bytes);
-            readBuffer.clear();
+
+        readSizeBuffer.clear();
+        int read = channel.read(readSizeBuffer);
+        if (read > 0) {
+            readSizeBuffer.flip();
+            int msgSize = readSizeBuffer.getInt();
+            ByteBuffer buffer = ByteBuffer.allocate(msgSize);
+            read = channel.read(buffer);
+            if (read != msgSize) {
+                System.out.println("Read different buffer size");
+                return;
+            }
+            buffer.flip();
+            byte[] data = new byte[msgSize];
+            buffer.get(data);
+
+            onDataReceived(key, data);
         }
         if (read < 0) {
             // nothing to read
@@ -119,14 +127,8 @@ public class CucumberGridServer implements Runnable {
             //msg = key.attachment()+" left the chat.\n";
             System.out.println("nothing to read");
             channel.close();
-        } else {
-            // msg = key.attachment()+": "+sb.toString();
-            byte[] data = baos.toByteArray();
-
-            onDataReceived(key, data);
         }
     }
-
     private void onDataReceived(SelectionKey key, byte[] data) {
         if (handler != null) {
             handler.onDataReceived(key, data);
@@ -154,6 +156,11 @@ public class CucumberGridServer implements Runnable {
     }
 
     public void send(SocketChannel channel, ByteBuffer buffer) throws IOException {
+        //TODO: find a better way to do this and optmize memory
+        ByteBuffer size = ByteBuffer.allocate(4);
+        size.putInt(buffer.limit());
+        size.flip();
+        channel.write(size);
         channel.write(buffer);
     }
 
