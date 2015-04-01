@@ -41,7 +41,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     private RunNotifier currentNotifier;
     private final JUnitReporter jUnitReporter;
     private final Runtime runtime;
-    private Formatter formatter;
+    private CucumberGridRemoteFormatter formatter;
 
     public CucumberGridNodeRuntime(Class clazz) throws IOException, InitializationError {
         super(clazz);
@@ -58,7 +58,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         runtime = createRuntime(resourceLoader, classLoader, runtimeOptions);
 
         formatter = new CucumberGridRemoteFormatter(client);
-        jUnitReporter = new JUnitReporter(runtimeOptions.reporter(classLoader), formatter, runtimeOptions.isStrict());
+        jUnitReporter = new JUnitReporter(formatter, formatter, runtimeOptions.isStrict());
     }
 
     /**

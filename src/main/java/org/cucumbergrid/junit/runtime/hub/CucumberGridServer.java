@@ -110,9 +110,12 @@ public class CucumberGridServer implements Runnable {
             readSizeBuffer.flip();
             int msgSize = readSizeBuffer.getInt();
             ByteBuffer buffer = ByteBuffer.allocate(msgSize);
-            read = channel.read(buffer);
+            do {
+                read = channel.read(buffer);
+            } while (read == 0);
+
             if (read != msgSize) {
-                System.out.println("Read different buffer size");
+                System.out.println("Read different buffer size: " + read + " " + msgSize);
                 return;
             }
             buffer.flip();

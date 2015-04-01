@@ -1,15 +1,16 @@
 package org.cucumbergrid.junit.runtime.node;
 
+import cucumber.runtime.StepDefinitionMatch;
 import gherkin.formatter.Formatter;
+import gherkin.formatter.Reporter;
 import gherkin.formatter.model.*;
 import org.cucumbergrid.junit.runtime.common.*;
-import org.cucumbergrid.junit.runtime.node.CucumberGridClient;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
-public class CucumberGridRemoteFormatter implements Formatter {
+public class CucumberGridRemoteFormatter implements Formatter, Reporter {
 
     private CucumberGridClient client;
 
@@ -78,16 +79,57 @@ public class CucumberGridRemoteFormatter implements Formatter {
 
     @Override
     public void done() {
-
+        // nothing to report
     }
 
     @Override
     public void close() {
-
+        // nothing to report
     }
 
     @Override
     public void eof() {
         send(FormatMessageID.EOF);
+    }
+
+    @Override
+    public void before(Match match, Result result) {
+        match = handleMatch(match);
+        send(FormatMessageID.BEFORE, match, result);
+    }
+
+    @Override
+    public void result(Result result) {
+        send(FormatMessageID.RESULT, result);
+    }
+
+    @Override
+    public void after(Match match, Result result) {
+        match = handleMatch(match);
+        send(FormatMessageID.AFTER, match, result);
+    }
+
+    @Override
+    public void match(Match match) {
+        match = handleMatch(match);
+        send(FormatMessageID.MATCH, match);
+    }
+
+    @Override
+    public void embedding(String mimeType, byte[] data) {
+        send(FormatMessageID.EMBEDDING, mimeType, data);
+    }
+
+    @Override
+    public void write(String text) {
+        send(FormatMessageID.WRITE, text);
+    }
+
+    private Match handleMatch(Match match) {
+        if (match instanceof StepDefinitionMatch) {
+            match = new Match(match.getArguments(), match.getLocation());
+
+        }
+        return match;
     }
 }

@@ -4,7 +4,6 @@ import cucumber.api.CucumberOptions;
 import cucumber.api.junit.Cucumber;
 import cucumber.runtime.RuntimeOptions;
 import cucumber.runtime.RuntimeOptionsFactory;
-import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
@@ -32,7 +31,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private LinkedList<CucumberFeature> featuresToExecute;
     private List<CucumberFeature> featuresExecuted;
     private RunNotifier notifier;
-    private JUnitReporter jUnitReporter;
+    private CucumberGridReporter reporter;
     private CucumberGridServerFormatterHandler formatterHandler;
 
     public CucumberGridHubRuntime(Class clazz) {
@@ -48,8 +47,8 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         RuntimeOptionsFactory runtimeOptionsFactory = new RuntimeOptionsFactory(clazz, new Class[]{CucumberOptions.class, Cucumber.Options.class});
         RuntimeOptions runtimeOptions = runtimeOptionsFactory.create();
 
-        jUnitReporter = new JUnitReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
-        formatterHandler = new CucumberGridServerFormatterHandler(jUnitReporter);
+        reporter = new CucumberGridReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
+        formatterHandler = new CucumberGridServerFormatterHandler(reporter);
     }
 
     @Override
@@ -80,6 +79,15 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         }
 
         // wait all results
+        while (formatterHandler.hasUnprocessedMessages()) {
+            // process
+            server.process();
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                logger.log(Level.SEVERE, e.getMessage(), e);
+            }
+        }
 
         // when all features finished, send a shutdown message
         broadcast(new Message(MessageID.SHUTDOWN));
@@ -87,8 +95,8 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
         server.shutdown();
 
-        jUnitReporter.done();
-        jUnitReporter.close();
+        reporter.done();
+        reporter.close();
 //        runtime.printSummary();
     }
 
@@ -96,7 +104,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     public void onDataReceived(SelectionKey key, byte[] data) {
         try {
             Message message = IOUtils.deserialize(data);
-            Message response = process(message);
+            Message response = process(key, message);
 //            System.out.println("Data received " + message.getID());
 //            System.out.println("Response " + response);
             if (response != null) {
@@ -124,7 +132,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         }
     }
 
-    public Message process(Message message) {
+    public Message process(SelectionKey key, Message message) {
         switch (message.getID()) {
             case REQUEST_FEATURE:
                 return processRequestFeature();
@@ -144,7 +152,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
                 onTestAssumptionFailure(message);
                 break;
             case FORMAT:
-                onFormatMessage(message);
+                onFormatMessage(key, message);
                 break;
             default:
                 System.out.println("Unknown message: " + message.getID() + " " + message.getData());
@@ -153,9 +161,10 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         return null;
     }
 
-    private void onFormatMessage(Message message) {
+    private void onFormatMessage(SelectionKey key, Message message) {
         FormatMessage formatMessage = message.getData();
-        formatterHandler.onFormatMessage(formatMessage);
+        String token = (String) key.attachment();
+        formatterHandler.onFormatMessage(token, formatMessage);
     }
 
     private void onTestAssumptionFailure(Message message) {

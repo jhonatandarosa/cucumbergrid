@@ -6,19 +6,56 @@ import org.cucumbergrid.junit.runtime.common.FormatMessage;
 import org.cucumbergrid.junit.runtime.common.FormatMessageID;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class CucumberGridServerFormatterHandler {
 
-    private JUnitReporter jUnitReporter;
+    private CucumberGridReporter jUnitReporter;
+    private Map<String, List<FormatMessage>> messages = new HashMap<>();
 
-    public CucumberGridServerFormatterHandler(JUnitReporter jUnitReporter) {
+    public CucumberGridServerFormatterHandler(CucumberGridReporter jUnitReporter) {
         this.jUnitReporter = jUnitReporter;
     }
 
-    public void onFormatMessage(FormatMessage message) {
+    public boolean hasUnprocessedMessages() {
+        return !messages.isEmpty();
+    }
+
+    /**
+     * @param token a uniquely identifier to node that sent the message
+     * @param message the message
+     */
+    public void onFormatMessage(String token, FormatMessage message) {
+        getMessages(token).add(message);
+        if (message.getID() == FormatMessageID.EOF) {
+            flushMessages(token);
+        }
+    }
+
+    /**
+     * @param token a uniquely identifier to node that sent the message
+     * @return the messages associated with the given {@code token}
+     */
+    private List<FormatMessage> getMessages(String token) {
+        List<FormatMessage> formatMessages = messages.get(token);
+        if (formatMessages == null) {
+            formatMessages = new ArrayList<>();
+            messages.put(token, formatMessages);
+        }
+        return formatMessages;
+    }
+
+    private void flushMessages(String token) {
+        List<FormatMessage> formatMessages = getMessages(token);
+        for (FormatMessage message : formatMessages) {
+            process(message);
+        }
+        messages.remove(token);
+    }
+
+    private void process(FormatMessage message) {
         switch (message.getID()) {
+            // Formatter interface
             case SYNTAX_ERROR:
                 onSyntaxError(message);
                 break;
@@ -52,9 +89,66 @@ public class CucumberGridServerFormatterHandler {
             case EOF:
                 onEOF(message);
                 break;
+
+            // Reporter interface
+            case BEFORE:
+                onBefore(message);
+                break;
+            case RESULT:
+                onResult(message);
+                break;
+            case AFTER:
+                onAfter(message);
+                break;
+            case MATCH:
+                onMatch(message);
+                break;
+            case EMBEDDING:
+                onEmbedding(message);
+                break;
+            case WRITE:
+                onWrite(message);
+                break;
         }
     }
 
+    /////////////////////
+    // Reportar interface
+    private void onBefore(FormatMessage message) {
+        Match match = message.getData(0);
+        Result result = message.getData(1);
+        jUnitReporter.before(match, result);
+    }
+
+    private void onResult(FormatMessage message) {
+        Result result = message.getData(0);
+        jUnitReporter.result(result);
+    }
+
+    private void onAfter(FormatMessage message) {
+        Match match = message.getData(0);
+        Result result = message.getData(1);
+        jUnitReporter.after(match, result);
+    }
+
+    private void onMatch(FormatMessage message) {
+        Match match = message.getData(0);
+        jUnitReporter.match(match);
+    }
+
+    private void onEmbedding(FormatMessage message) {
+        String mimeType = message.getData(0);
+        byte[] data = message.getData(1);
+        jUnitReporter.embedding(mimeType, data);
+    }
+
+    private void onWrite(FormatMessage message) {
+        String text = message.getData(0);
+        jUnitReporter.write(text);
+    }
+
+    ///////////////////////
+    // Formatter interface
     private void onSyntaxError(FormatMessage message) {
         String state = message.getData(0);
         String event = message.getData(1);
