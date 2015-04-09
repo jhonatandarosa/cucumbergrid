@@ -15,7 +15,7 @@ import java.nio.channels.SocketChannel;
 
 public class CucumberGridServer implements Runnable {
 
-    public final static String ADDRESS = "127.0.0.1";
+    public final static String ADDRESS = "0.0.0.0";
 
     private int port;
     private int selectTimeout = 1000;
