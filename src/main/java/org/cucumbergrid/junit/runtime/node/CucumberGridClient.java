@@ -1,14 +1,17 @@
 package org.cucumbergrid.junit.runtime.node;
 
 import org.cucumbergrid.junit.runner.CucumberGridNode;
+import org.cucumbergrid.junit.runtime.common.Message;
+import org.cucumbergrid.junit.runtime.common.MessageID;
+import org.cucumbergrid.junit.utils.IOUtils;
 
-import java.net.ConnectException;
-import java.net.SocketOptions;
+import java.net.*;
+import java.nio.channels.DatagramChannel;
+import java.util.Enumeration;
 import java.util.Iterator;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -41,11 +44,46 @@ public class CucumberGridClient implements Runnable {
 
     public void init() {
         try {
+            if (hubAddress.isEmpty()) {
+                discoverHubAddress();
+            }
             tryConnect();
         } catch (IOException e) {
             e.printStackTrace();
         }
 
+    }
+
+    private void discoverHubAddress() throws IOException {
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        InetAddress broadcast = null;
+
+        netInterfaceLoop:
+        while (interfaces.hasMoreElements()) {
+            NetworkInterface netInterface = interfaces.nextElement();
+            if (netInterface.isLoopback())
+                continue;    // Don't want to broadcast to the loopback interface
+
+            for (InterfaceAddress interfaceAddress : netInterface.getInterfaceAddresses()) {
+                broadcast = interfaceAddress.getBroadcast();
+                if (broadcast != null) {
+                    break netInterfaceLoop;
+                }
+            }
+        }
+        System.out.println("Broadcasting to " + broadcast.getHostAddress() + ":" + 26001);
+        DatagramChannel channel = DatagramChannel.open();
+        channel.bind(new InetSocketAddress(0));
+
+        byte[] bytes = IOUtils.serialize(new Message(MessageID.DISCOVERY));
+        channel.send(ByteBuffer.wrap(bytes), new InetSocketAddress(broadcast, 26001));
+
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+        channel.receive(buffer);
+        buffer.flip();
+        bytes = new byte[buffer.limit()];
+        buffer.get(bytes);
+        System.out.println(new String(bytes));
     }
 
     private void tryConnect() throws IOException {

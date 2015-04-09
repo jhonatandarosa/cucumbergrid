@@ -7,7 +7,7 @@ import java.lang.annotation.*;
 @Inherited
 public @interface CucumberGridNode {
 
-    String hub();
+    String hub() default "";
     int port() default 26000;
     int selectTimeout() default 1000;
     int connectTimeout() default 5000;

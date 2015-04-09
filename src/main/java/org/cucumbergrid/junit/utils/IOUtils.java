@@ -1,8 +1,10 @@
-package org.cucumbergrid.junit.runtime.common;
+package org.cucumbergrid.junit.utils;
 
 import java.io.*;
 
-public class IOUtils {
+public final class IOUtils {
+
+    private IOUtils() {}
 
     public static <T extends Serializable> byte[] serialize(T object) throws IOException {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {

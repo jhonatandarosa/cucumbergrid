@@ -2,20 +2,17 @@ package org.cucumbergrid.junit.runtime.hub;
 
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 
+import java.net.InetAddress;
+import java.net.SocketAddress;
+import java.net.UnknownHostException;
+import java.nio.channels.*;
 import java.util.Iterator;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 
 public class CucumberGridServer implements Runnable {
-
-    public final static String ADDRESS = "0.0.0.0";
 
     private int port;
     private int selectTimeout = 1000;
@@ -23,6 +20,11 @@ public class CucumberGridServer implements Runnable {
     private Selector selector;
     private ByteBuffer readSizeBuffer = ByteBuffer.allocate(4);
     private CucumberGridServerHandler handler;
+    private DatagramChannel discoveryChannel;
+    private int discoveryPort = 26001;
+    private ByteBuffer discoveryBuffer = ByteBuffer.allocate(1024);
+    private InetAddress serverAddress;
+
 
     public CucumberGridServer(int port) {
         this.port = port;
@@ -42,16 +44,25 @@ public class CucumberGridServer implements Runnable {
     }
 
     public void init() {
-        System.out.println("initializing server");
+        try {
+            serverAddress = InetAddress.getLocalHost();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        System.out.println("Server listening to " + serverAddress.getHostAddress() + ":" + port);
 
         if (selector != null) return;
         if (serverChannel != null) return;
 
         try {
+            discoveryChannel = DatagramChannel.open();
+            discoveryChannel.configureBlocking(false);
+            discoveryChannel.bind(new InetSocketAddress(serverAddress, discoveryPort));
+
             selector = Selector.open();
             serverChannel = ServerSocketChannel.open();
             serverChannel.configureBlocking(false);
-            serverChannel.socket().bind(new InetSocketAddress(ADDRESS, port));
+            serverChannel.socket().bind(new InetSocketAddress(serverAddress, port));
 
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
@@ -87,9 +98,24 @@ public class CucumberGridServer implements Runnable {
                 if (key.isAcceptable()) handleAccept(key);
                 if (key.isReadable()) handleRead(key);
             }
+
+            // process discovery
+            discoveryBuffer.clear();
+            SocketAddress client = discoveryChannel.receive(discoveryBuffer);
+            if (client != null) {
+                System.out.println("Handling discovery message");
+                discoveryBuffer.flip();
+                handleDatagram(client, discoveryBuffer);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private void handleDatagram(SocketAddress client, ByteBuffer buffer) throws IOException {
+        String msg = serverAddress.getHostAddress();
+        ByteBuffer data = ByteBuffer.wrap(msg.getBytes());
+        discoveryChannel.send(data, client);
     }
 
     private void handleAccept(SelectionKey key) throws IOException {

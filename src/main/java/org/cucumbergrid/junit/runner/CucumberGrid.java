@@ -10,6 +10,7 @@ import cucumber.runtime.model.CucumberFeature;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.hub.CucumberGridHubRuntime;
 import org.cucumbergrid.junit.runtime.node.CucumberGridNodeRuntime;
+import org.cucumbergrid.junit.utils.ReflectionUtils;
 import org.junit.runner.Description;
 import org.junit.runner.Runner;
 import org.junit.runner.notification.RunNotifier;
@@ -33,8 +34,8 @@ public class CucumberGrid extends Runner {
     public CucumberGrid(Class clazz) throws InitializationError, IOException {
         Assertions.assertNoCucumberAnnotatedMethods(clazz);
 
-        Annotation gridHub = clazz.getDeclaredAnnotation(CucumberGridHub.class);
-        Annotation gridNode = clazz.getDeclaredAnnotation(CucumberGridNode.class);
+        CucumberGridHub gridHub = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridHub.class);
+        CucumberGridNode gridNode = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridNode.class);
 
         if (gridHub == null && gridNode == null) {
             throw new InitializationError("Tests ran with CucumberGrid must specify either @CucumberGridHub or @CucumberGridNode");

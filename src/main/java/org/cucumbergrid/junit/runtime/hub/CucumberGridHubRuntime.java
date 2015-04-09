@@ -9,9 +9,10 @@ import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
 import org.cucumbergrid.junit.runtime.common.FormatMessage;
-import org.cucumbergrid.junit.runtime.common.IOUtils;
+import org.cucumbergrid.junit.utils.IOUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
+import org.cucumbergrid.junit.utils.ReflectionUtils;
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunNotifier;
@@ -19,9 +20,7 @@ import org.junit.runner.notification.RunNotifier;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.channels.SelectionKey;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Level;
 
 public class CucumberGridHubRuntime extends CucumberGridRuntime implements CucumberGridServerHandler {
@@ -33,11 +32,12 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private RunNotifier notifier;
     private CucumberGridReporter reporter;
     private CucumberGridServerFormatterHandler formatterHandler;
+    private Map<String, Set<CucumberFeature>> unknownFeaturesByClient = new HashMap<>();
 
     public CucumberGridHubRuntime(Class clazz) {
         super(clazz);
 
-        CucumberGridHub config = (CucumberGridHub) clazz.getDeclaredAnnotation(CucumberGridHub.class);
+        CucumberGridHub config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridHub.class);
         server = new CucumberGridServer(config);
         server.setHandler(this);
         featuresToExecute = new LinkedList<>(cucumberFeatures);
@@ -49,6 +49,16 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
         reporter = new CucumberGridReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
         formatterHandler = new CucumberGridServerFormatterHandler(reporter);
+    }
+
+    private Set<CucumberFeature> getUnknownFeatures(SelectionKey key) {
+        String nodeId = (String) key.attachment();
+        Set<CucumberFeature> set = unknownFeaturesByClient.get(nodeId);
+        if (set == null) {
+            set = new HashSet<>();
+            unknownFeaturesByClient.put(nodeId, set);
+        }
+        return set;
     }
 
     @Override
@@ -136,6 +146,8 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         switch (message.getID()) {
             case REQUEST_FEATURE:
                 return processRequestFeature();
+            case UNKNOWN_FEATURE:
+                return processUnknownFeature(key, message);
             case TEST_STARTED:
                 onTestStarted(message);
                 break;
@@ -204,5 +216,27 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         }
         CucumberFeature feature = featuresToExecute.poll();
         return new Message(MessageID.EXECUTE_FEATURE, CucumberUtils.getUniqueID(feature));
+    }
+
+    private Message processUnknownFeature(SelectionKey key, Serializable featureID) {
+        CucumberFeature feature = getFeatureByID(featureID);
+        Set<CucumberFeature> set = getUnknownFeatures(key);
+        set.add(feature);
+
+        featuresToExecute.push(feature);
+        feature = null;
+        for (int i = 0; i < featuresToExecute.size(); i++) {
+            feature = featuresToExecute.get(i);
+            if (!set.contains(feature)) {
+                break;
+            }
+        }
+
+        if (feature != null) {
+            featuresToExecute.remove(feature);
+            return new Message(MessageID.EXECUTE_FEATURE, CucumberUtils.getUniqueID(feature));
+        } else {
+            return new Message(MessageID.NO_MORE_FEATURES);
+        }
     }
 }

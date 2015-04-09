@@ -14,14 +14,14 @@ import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
 import cucumber.runtime.model.CucumberTagStatement;
-import gherkin.formatter.Formatter;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
-import org.cucumbergrid.junit.runtime.common.IOUtils;
+import org.cucumbergrid.junit.utils.IOUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
+import org.cucumbergrid.junit.utils.ReflectionUtils;
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
@@ -45,7 +45,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
     public CucumberGridNodeRuntime(Class clazz) throws IOException, InitializationError {
         super(clazz);
-        CucumberGridNode config = (CucumberGridNode) clazz.getDeclaredAnnotation(CucumberGridNode.class);
+        CucumberGridNode config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridNode.class);
 
         client = new CucumberGridClient(config);
         client.setHandler(this);
@@ -140,7 +140,8 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         System.out.println("Execute feature " + uniqueID);
         CucumberFeature cucumberFeature = getFeatureByID(uniqueID);
         if (cucumberFeature == null) {
-            throw new IllegalArgumentException("Unknown feature: " + cucumberFeature.getPath());
+            send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
+            return;
         }
 
         jUnitReporter.uri(cucumberFeature.getPath());

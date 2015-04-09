@@ -5,6 +5,7 @@ import gherkin.formatter.Formatter;
 import gherkin.formatter.Reporter;
 import gherkin.formatter.model.*;
 import org.cucumbergrid.junit.runtime.common.*;
+import org.cucumbergrid.junit.utils.IOUtils;
 
 import java.io.IOException;
 import java.io.Serializable;
