@@ -1,11 +1,15 @@
 package org.cucumbergrid.junit.runtime.hub.server;
 
+import java.util.Enumeration;
 import java.util.concurrent.Executors;
 
 import java.io.Serializable;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.hub.CucumberGridServerHandler;
@@ -21,6 +25,7 @@ public class GridServer  {
     private CucumberGridServerHandler handler;
     private ServerBootstrap bootstrap;
     private Channel channel;
+    private InetSocketAddress inetSocketAddress;
 
     public GridServer(int port) {
         this.port = port;
@@ -37,10 +42,28 @@ public class GridServer  {
 
     public void init() {
         try {
-            serverAddress = InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+
+            netInterfaceLoop:
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface netInterface = interfaces.nextElement();
+                if (netInterface.isLoopback()
+                        || netInterface.isVirtual()
+                        || !netInterface.isUp())
+                    continue;
+
+                for (InterfaceAddress interfaceAddress : netInterface.getInterfaceAddresses()) {
+                    serverAddress = interfaceAddress.getAddress();
+                    if (serverAddress != null && serverAddress instanceof Inet4Address) {
+                        break netInterfaceLoop;
+                    }
+                }
+            }
+        } catch (SocketException e) {
             e.printStackTrace();
+            serverAddress = null;
         }
+
 
         bootstrap = new ServerBootstrap(
                 new NioServerSocketChannelFactory(
@@ -51,9 +74,15 @@ public class GridServer  {
         bootstrap.setPipelineFactory(new GridServerPipelineFactory(handler));
 
         // Bind and start to accept incoming connections.
-        channel = bootstrap.bind(new InetSocketAddress(serverAddress, port));
+        if (serverAddress == null) {
+            inetSocketAddress = new InetSocketAddress("0.0.0.0", port);
+            channel = bootstrap.bind(inetSocketAddress);
+        } else {
+            inetSocketAddress = new InetSocketAddress(serverAddress, port);
+            channel = bootstrap.bind(inetSocketAddress);
+        }
 
-        System.out.println("Server listening to " + serverAddress.getHostAddress() + ":" + port);
+        System.out.println("Server listening to " + inetSocketAddress);
     }
 
     public void shutdown() {
