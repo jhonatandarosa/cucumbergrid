@@ -1,5 +1,8 @@
 package org.cucumbergrid.junit.runtime.node;
 
+import java.util.List;
+import java.util.logging.Level;
+
 import cucumber.api.CucumberOptions;
 import cucumber.api.junit.Cucumber;
 import cucumber.runtime.ClassFinder;
@@ -14,29 +17,26 @@ import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
 import cucumber.runtime.model.CucumberTagStatement;
+import java.io.IOException;
+import java.io.Serializable;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
-import org.cucumbergrid.junit.utils.IOUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
+import org.cucumbergrid.junit.runtime.node.client.GridClient;
 import org.cucumbergrid.junit.utils.ReflectionUtils;
+import org.jboss.netty.channel.Channel;
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.InitializationError;
 
-import java.io.IOException;
-import java.io.Serializable;
-import java.nio.channels.SelectionKey;
-import java.util.List;
-import java.util.logging.Level;
-
 public class CucumberGridNodeRuntime extends CucumberGridRuntime implements CucumberGridClientHandler {
 
-    private CucumberGridClient client;
+    private GridClient client;
     private Description description;
     private RunNotifier currentNotifier;
     private final JUnitReporter jUnitReporter;
@@ -47,7 +47,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         super(clazz);
         CucumberGridNode config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridNode.class);
 
-        client = new CucumberGridClient(config);
+        client = new GridClient(config);
         client.setHandler(this);
 
         ClassLoader classLoader = clazz.getClassLoader();
@@ -85,39 +85,24 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         notifier.addListener(new CucumberGridRunListener());
         client.init();
 
-        while (client.isConnectionPending()) {
-            client.process();
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                logger.log(Level.SEVERE, e.getMessage(), e);
-            }
-        }
         if (!client.isConnected()) return;
 
-         send(new Message(MessageID.REQUEST_FEATURE));
+        client.send(new Message(MessageID.REQUEST_FEATURE));
         // server has features to execute
         while (client.isConnected()) {
             // process
-            client.process();
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
                 logger.log(Level.SEVERE, e.getMessage(), e);
             }
         }
+
+        client.releaseExternalResources();
 
         jUnitReporter.done();
         jUnitReporter.close();
         runtime.printSummary();
-    }
-
-    private void send(Message message) {
-        try {
-            client.send(IOUtils.serialize(message));
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, e.getMessage(), e);
-        }
     }
 
     private void process(Message message) throws InitializationError {
@@ -140,7 +125,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         System.out.println("Execute feature " + uniqueID);
         CucumberFeature cucumberFeature = getFeatureByID(uniqueID);
         if (cucumberFeature == null) {
-            send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
+            client.send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
             return;
         }
 
@@ -163,17 +148,14 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
 
         System.out.println("Requesting new feature");
-        send(new Message(MessageID.REQUEST_FEATURE));
+        client.send(new Message(MessageID.REQUEST_FEATURE));
         System.out.println("Feature requested");
     }
 
     @Override
-    public void onDataReceived(SelectionKey key, byte[] data) {
+    public void onDataReceived(Channel channel, Message data) {
         try {
-            Message message = IOUtils.deserialize(data);
-            process(message);
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, e.getMessage(), e);
+            process((Message)data);
         } catch (InitializationError e) {
             logger.log(Level.SEVERE, e.getMessage(), e);
         }
@@ -184,12 +166,12 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
             Serializable uniqueID = CucumberUtils.getDescriptionUniqueID(description);
             //new Throwable(uniqueID.toString()).printStackTrace();
-            send(new Message(messageID, uniqueID));
+            client.send(new Message(messageID, uniqueID));
 
         }
 
         void sendMessage(MessageID messageID, Serializable value) {
-            send(new Message(messageID, value));
+            client.send(new Message(messageID, value));
         }
 
         @Override

@@ -5,6 +5,7 @@ import gherkin.formatter.Formatter;
 import gherkin.formatter.Reporter;
 import gherkin.formatter.model.*;
 import org.cucumbergrid.junit.runtime.common.*;
+import org.cucumbergrid.junit.runtime.node.client.GridClient;
 import org.cucumbergrid.junit.utils.IOUtils;
 
 import java.io.IOException;
@@ -13,20 +14,16 @@ import java.util.List;
 
 public class CucumberGridRemoteFormatter implements Formatter, Reporter {
 
-    private CucumberGridClient client;
+    private GridClient client;
 
-    public CucumberGridRemoteFormatter(CucumberGridClient client) {
+    public CucumberGridRemoteFormatter(GridClient client) {
         this.client = client;
     }
 
     private void send(FormatMessageID messageID, Serializable... data) {
         FormatMessage formatMsg = new FormatMessage(messageID, data);
         Message msg = new Message(MessageID.FORMAT, formatMsg);
-        try {
-            client.send(IOUtils.serialize(msg));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        client.send(msg);
     }
     @Override
     public void syntaxError(String state, String event, List<String> legalEvents, String uri, Integer line) {

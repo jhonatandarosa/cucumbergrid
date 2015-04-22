@@ -1,12 +1,21 @@
 package org.cucumbergrid.junit.runtime.hub;
 
-import cucumber.runtime.junit.JUnitReporter;
-import gherkin.formatter.model.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import gherkin.formatter.model.Background;
+import gherkin.formatter.model.Examples;
+import gherkin.formatter.model.Feature;
+import gherkin.formatter.model.Match;
+import gherkin.formatter.model.Result;
+import gherkin.formatter.model.Scenario;
+import gherkin.formatter.model.ScenarioOutline;
+import gherkin.formatter.model.Step;
 import org.cucumbergrid.junit.runtime.common.FormatMessage;
 import org.cucumbergrid.junit.runtime.common.FormatMessageID;
-
-import java.io.Serializable;
-import java.util.*;
 
 public class CucumberGridServerFormatterHandler {
 
@@ -45,7 +54,7 @@ public class CucumberGridServerFormatterHandler {
         return formatMessages;
     }
 
-    private void flushMessages(String token) {
+    private synchronized void flushMessages(String token) {
         List<FormatMessage> formatMessages = getMessages(token);
         for (FormatMessage message : formatMessages) {
             process(message);
