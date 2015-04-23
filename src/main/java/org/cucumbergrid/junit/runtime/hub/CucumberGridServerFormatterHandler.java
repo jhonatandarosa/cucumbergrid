@@ -2,9 +2,8 @@ package org.cucumbergrid.junit.runtime.hub;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import gherkin.formatter.model.Background;
 import gherkin.formatter.model.Examples;
@@ -20,7 +19,7 @@ import org.cucumbergrid.junit.runtime.common.FormatMessageID;
 public class CucumberGridServerFormatterHandler {
 
     private CucumberGridReporter jUnitReporter;
-    private Map<String, List<FormatMessage>> messages = new HashMap<>();
+    private ConcurrentHashMap<Integer, List<FormatMessage>> messages = new ConcurrentHashMap<>();
 
     public CucumberGridServerFormatterHandler(CucumberGridReporter jUnitReporter) {
         this.jUnitReporter = jUnitReporter;
@@ -30,36 +29,40 @@ public class CucumberGridServerFormatterHandler {
         return !messages.isEmpty();
     }
 
+    public void discardMessages(Integer channelId) {
+        messages.remove(channelId);
+    }
+
     /**
-     * @param token a uniquely identifier to node that sent the message
+     * @param channelId a uniquely identifier to node that sent the message
      * @param message the message
      */
-    public void onFormatMessage(String token, FormatMessage message) {
-        getMessages(token).add(message);
+    public void onFormatMessage(Integer channelId, FormatMessage message) {
+        getMessages(channelId).add(message);
         if (message.getID() == FormatMessageID.EOF) {
-            flushMessages(token);
+            flushMessages(channelId);
         }
     }
 
     /**
-     * @param token a uniquely identifier to node that sent the message
-     * @return the messages associated with the given {@code token}
+     * @param channelId a uniquely identifier to node that sent the message
+     * @return the messages associated with the given {@code channelId}
      */
-    private List<FormatMessage> getMessages(String token) {
-        List<FormatMessage> formatMessages = messages.get(token);
+    private List<FormatMessage> getMessages(Integer channelId) {
+        List<FormatMessage> formatMessages = messages.get(channelId);
         if (formatMessages == null) {
             formatMessages = new ArrayList<>();
-            messages.put(token, formatMessages);
+            messages.put(channelId, formatMessages);
         }
         return formatMessages;
     }
 
-    private synchronized void flushMessages(String token) {
-        List<FormatMessage> formatMessages = getMessages(token);
+    private synchronized void flushMessages(Integer channelId) {
+        List<FormatMessage> formatMessages = getMessages(channelId);
         for (FormatMessage message : formatMessages) {
             process(message);
         }
-        messages.remove(token);
+        messages.remove(channelId);
     }
 
     private void process(FormatMessage message) {
@@ -215,5 +218,4 @@ public class CucumberGridServerFormatterHandler {
     private void onEOF(FormatMessage message) {
         jUnitReporter.eof();
     }
-
 }

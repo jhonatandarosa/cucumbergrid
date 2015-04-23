@@ -6,4 +6,6 @@ import org.jboss.netty.channel.Channel;
 public interface CucumberGridServerHandler {
 
     void onDataReceived(Channel channel, Message data);
+
+    void onNodeDisconnected(Channel channel);
 }

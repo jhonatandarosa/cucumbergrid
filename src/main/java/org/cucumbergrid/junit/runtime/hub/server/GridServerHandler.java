@@ -43,6 +43,7 @@ public class GridServerHandler extends SimpleChannelUpstreamHandler {
         // Unregister the channel from the global channel list
         // so the channel does not receive messages anymore.
         channels.remove(e.getChannel());
+        handler.onNodeDisconnected(e.getChannel());
     }
 
     @Override

@@ -32,6 +32,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private GridServer server;
     private LinkedList<CucumberFeature> featuresToExecute;
     private ConcurrentLinkedDeque<CucumberFeature> featuresExecuted;
+    private ConcurrentHashMap<Integer, CucumberFeature> featureBeingExecuted = new ConcurrentHashMap<>();
     private RunNotifier notifier;
     private CucumberGridReporter reporter;
     private CucumberGridServerFormatterHandler formatterHandler;
@@ -126,10 +127,22 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
     }
 
+    @Override
+    public void onNodeDisconnected(Channel channel) {
+        CucumberFeature feature = featureBeingExecuted.remove(channel.getId());
+        if (feature != null) {
+            System.out.println("Adding " + CucumberUtils.getUniqueID(feature) + " to be executed again");
+            synchronized (featuresToExecute) {
+                featuresToExecute.add(feature);
+            }
+            formatterHandler.discardMessages(channel.getId());
+        }
+    }
+
     public Message process(Channel channel, Message message) {
         switch (message.getID()) {
             case REQUEST_FEATURE:
-                return processRequestFeature();
+                return processRequestFeature(channel);
             case UNKNOWN_FEATURE:
                 return processUnknownFeature(channel, message);
             case TEST_STARTED:
@@ -159,8 +172,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
     private void onFormatMessage(Channel channel, Message message) {
         FormatMessage formatMessage = message.getData();
-        String token = "node" + channel.getId();
-        formatterHandler.onFormatMessage(token, formatMessage);
+        formatterHandler.onFormatMessage(channel.getId(), formatMessage);
     }
 
     private void onTestAssumptionFailure(Message message) {
@@ -194,7 +206,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         notifier.fireTestStarted(description);
     }
 
-    private Message processRequestFeature() {
+    private Message processRequestFeature(Channel channel) {
         if (featuresToExecute.isEmpty()) {
             return new Message(MessageID.NO_MORE_FEATURES);
         }
@@ -203,6 +215,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             feature = featuresToExecute.poll();
             featuresToExecute.notifyAll();
         }
+        featureBeingExecuted.put(channel.getId(), feature);
         return new Message(MessageID.EXECUTE_FEATURE, CucumberUtils.getUniqueID(feature));
     }
 
