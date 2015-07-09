@@ -104,7 +104,7 @@ public class GridClient {
         shutdown(true);
     }
     public void shutdown(boolean gracefully) {
-        if (gracefully) {
+        if (gracefully && !pendingMessages.isEmpty()) {
             shutdownScheduled = true;
         } else {
             channel.disconnect();
