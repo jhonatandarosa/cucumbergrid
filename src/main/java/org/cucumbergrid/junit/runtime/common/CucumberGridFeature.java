@@ -5,11 +5,6 @@ import java.util.Map;
 
 import gherkin.formatter.model.Feature;
 
-/**
- * @author Jhonatan da Rosa <br>
- *         Dígitro - 15/07/15 <br>
- *         <a href="mailto:jhonatan.rosa@digitro.com.br">jhonatan.rosa@digitro.com.br</a>
- */
 public class CucumberGridFeature extends Feature {
 
     private Feature feature;
