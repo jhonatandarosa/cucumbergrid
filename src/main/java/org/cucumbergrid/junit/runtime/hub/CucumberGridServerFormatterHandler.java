@@ -13,15 +13,19 @@ import gherkin.formatter.model.Result;
 import gherkin.formatter.model.Scenario;
 import gherkin.formatter.model.ScenarioOutline;
 import gherkin.formatter.model.Step;
+import org.cucumbergrid.junit.runtime.common.CucumberGridFeature;
 import org.cucumbergrid.junit.runtime.common.FormatMessage;
 import org.cucumbergrid.junit.runtime.common.FormatMessageID;
+import org.cucumbergrid.junit.runtime.common.NodeInfo;
 
 public class CucumberGridServerFormatterHandler {
 
+    private CucumberGridHubRuntime runtime;
     private CucumberGridReporter jUnitReporter;
     private ConcurrentHashMap<Integer, List<FormatMessage>> messages = new ConcurrentHashMap<>();
 
-    public CucumberGridServerFormatterHandler(CucumberGridReporter jUnitReporter) {
+    public CucumberGridServerFormatterHandler(CucumberGridHubRuntime runtime, CucumberGridReporter jUnitReporter) {
+        this.runtime = runtime;
         this.jUnitReporter = jUnitReporter;
     }
 
@@ -60,12 +64,12 @@ public class CucumberGridServerFormatterHandler {
     private synchronized void flushMessages(Integer channelId) {
         List<FormatMessage> formatMessages = getMessages(channelId);
         for (FormatMessage message : formatMessages) {
-            process(message);
+            process(channelId, message);
         }
         messages.remove(channelId);
     }
 
-    private void process(FormatMessage message) {
+    private void process(Integer channelId, FormatMessage message) {
         switch (message.getID()) {
             // Formatter interface
             case SYNTAX_ERROR:
@@ -75,7 +79,7 @@ public class CucumberGridServerFormatterHandler {
                 onUri(message);
                 break;
             case FEATURE:
-                onFeature(message);
+                onFeature(channelId, message);
                 break;
             case SCENARIO_OUTLINE:
                 onScenarioOutline(message);
@@ -175,9 +179,14 @@ public class CucumberGridServerFormatterHandler {
         jUnitReporter.uri(uri);
     }
 
-    private void onFeature(FormatMessage message) {
+    private void onFeature(Integer channelId, FormatMessage message) {
         Feature feature = message.getData(0);
-        jUnitReporter.feature(feature);
+        CucumberGridFeature gridFeature = new CucumberGridFeature(feature);
+
+        NodeInfo nodeInfo = runtime.getNodeInfo(channelId);
+
+        gridFeature.addReportInfo("nodeInfo", nodeInfo);
+        jUnitReporter.feature(gridFeature);
     }
 
     private void onScenarioOutline(FormatMessage message) {

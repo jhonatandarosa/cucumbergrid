@@ -1,18 +1,14 @@
 package org.cucumbergrid.junit.runtime.hub.server;
 
-import java.util.Enumeration;
 import java.util.concurrent.Executors;
 
 import java.io.Serializable;
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.InterfaceAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.hub.CucumberGridServerHandler;
+import org.cucumbergrid.junit.sysinfo.SysInfo;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
@@ -41,28 +37,7 @@ public class GridServer  {
     }
 
     public void init() {
-        try {
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-
-            netInterfaceLoop:
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface netInterface = interfaces.nextElement();
-                if (netInterface.isLoopback()
-                        || netInterface.isVirtual()
-                        || !netInterface.isUp())
-                    continue;
-
-                for (InterfaceAddress interfaceAddress : netInterface.getInterfaceAddresses()) {
-                    serverAddress = interfaceAddress.getAddress();
-                    if (serverAddress != null && serverAddress instanceof Inet4Address) {
-                        break netInterfaceLoop;
-                    }
-                }
-            }
-        } catch (SocketException e) {
-            e.printStackTrace();
-            serverAddress = null;
-        }
+        serverAddress = SysInfo.getInstance().getAddress();
 
 
         bootstrap = new ServerBootstrap(

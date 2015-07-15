@@ -20,12 +20,15 @@ import cucumber.runtime.model.CucumberTagStatement;
 import java.io.IOException;
 import java.io.Serializable;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
+import org.cucumbergrid.junit.runner.NodePropertyRetriever;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
+import org.cucumbergrid.junit.runtime.common.NodeInfo;
 import org.cucumbergrid.junit.runtime.node.client.GridClient;
+import org.cucumbergrid.junit.sysinfo.SysInfo;
 import org.cucumbergrid.junit.utils.ReflectionUtils;
 import org.jboss.netty.channel.Channel;
 import org.junit.runner.Description;
@@ -42,6 +45,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     private final JUnitReporter jUnitReporter;
     private final Runtime runtime;
     private CucumberGridRemoteFormatter formatter;
+    private NodeInfo nodeInfo;
 
     public CucumberGridNodeRuntime(Class clazz) throws IOException, InitializationError {
         super(clazz);
@@ -59,6 +63,29 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
         formatter = new CucumberGridRemoteFormatter(client);
         jUnitReporter = new JUnitReporter(formatter, formatter, runtimeOptions.isStrict());
+
+        nodeInfo = createNodeInfo();
+    }
+
+    private NodeInfo createNodeInfo() {
+        NodeInfo info = new NodeInfo();
+        SysInfo sysInfo = SysInfo.getInstance();
+        info.setOs(sysInfo.getOperatingSystem());
+        info.setAddress(sysInfo.getAddress().getHostName());
+
+        CucumberGridNode config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridNode.class);
+        Class<? extends NodePropertyRetriever> retrieverClass = config.retriever();
+        if (!NodePropertyRetriever.class.equals(retrieverClass)) {
+            try {
+                NodePropertyRetriever retriever = retrieverClass.newInstance();
+                info.setProperties(retriever.getProperties());
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+        return info;
     }
 
     /**
@@ -86,6 +113,8 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         client.init();
 
         if (!client.isConnected()) return;
+
+        client.send(new Message(MessageID.NODE_INFO, nodeInfo));
 
         client.send(new Message(MessageID.REQUEST_FEATURE));
         // server has features to execute

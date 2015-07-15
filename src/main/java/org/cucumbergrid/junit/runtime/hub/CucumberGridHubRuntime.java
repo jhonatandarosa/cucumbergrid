@@ -19,6 +19,7 @@ import org.cucumbergrid.junit.runtime.CucumberUtils;
 import org.cucumbergrid.junit.runtime.common.FormatMessage;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
+import org.cucumbergrid.junit.runtime.common.NodeInfo;
 import org.cucumbergrid.junit.runtime.hub.server.GridServer;
 import org.cucumbergrid.junit.utils.ReflectionUtils;
 import org.jboss.netty.channel.Channel;
@@ -37,6 +38,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private CucumberGridReporter reporter;
     private CucumberGridServerFormatterHandler formatterHandler;
     private ConcurrentHashMap<Integer, Set<CucumberFeature>> unknownFeaturesByClient = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Integer, NodeInfo> nodeInfos = new ConcurrentHashMap<>();
 
     public CucumberGridHubRuntime(Class clazz) {
         super(clazz);
@@ -52,7 +54,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         RuntimeOptions runtimeOptions = runtimeOptionsFactory.create();
 
         reporter = new CucumberGridReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
-        formatterHandler = new CucumberGridServerFormatterHandler(reporter);
+        formatterHandler = new CucumberGridServerFormatterHandler(this, reporter);
     }
 
     private Set<CucumberFeature> getUnknownFeatures(Channel channel) {
@@ -163,11 +165,23 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             case FORMAT:
                 onFormatMessage(channel, message);
                 break;
+            case NODE_INFO:
+                onNodeInfoMessage(channel, message);
+                break;
             default:
                 System.out.println("Unknown message: " + message.getID() + " " + message.getData());
 
         }
         return null;
+    }
+
+    NodeInfo getNodeInfo(Integer channelId) {
+        return nodeInfos.get(channelId);
+    }
+
+    private void onNodeInfoMessage(Channel channel, Message message) {
+        NodeInfo nodeInfo = message.getData();
+        nodeInfos.put(channel.getId(), nodeInfo);
     }
 
     private void onFormatMessage(Channel channel, Message message) {

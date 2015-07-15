@@ -12,4 +12,5 @@ public @interface CucumberGridNode {
     int selectTimeout() default 1000;
     int connectTimeout() default 5000;
     int maxRetries() default 10;
+    Class<? extends NodePropertyRetriever> retriever() default NodePropertyRetriever.class;
 }
