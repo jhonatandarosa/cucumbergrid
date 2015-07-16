@@ -12,6 +12,6 @@ import java.lang.annotation.Target;
 public @interface CucumberGridHub {
 
     int port() default 26000;
-    int selectTimeout() default 1000;
+    int discoveryServicePort() default 26001;
     String[] clusterBy() default {};
 }

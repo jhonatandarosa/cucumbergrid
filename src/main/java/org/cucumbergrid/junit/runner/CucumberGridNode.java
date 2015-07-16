@@ -9,6 +9,7 @@ public @interface CucumberGridNode {
 
     String hub() default "";
     int port() default 26000;
+    int discoveryServicePort() default 26001;
     int selectTimeout() default 1000;
     int connectTimeout() default 5000;
     int maxRetries() default 10;

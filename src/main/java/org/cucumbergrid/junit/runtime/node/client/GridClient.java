@@ -1,17 +1,16 @@
 package org.cucumbergrid.junit.runtime.node.client;
 
-import java.util.LinkedList;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
+import org.cucumbergrid.junit.netty.DiscoveryClient;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runtime.node.CucumberGridClientHandler;
 import org.cucumbergrid.junit.runtime.node.CucumberGridNodeRuntime;
+import org.cucumbergrid.junit.utils.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
-import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -19,6 +18,7 @@ import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 
 public class GridClient {
 
+    private int discoveryServicePort;
     private CucumberGridClientHandler handler;
     private String hubAddress;
     private int port;
@@ -32,18 +32,28 @@ public class GridClient {
     private boolean shutdownScheduled;
 
     public GridClient(CucumberGridNode config) {
-        this(config.hub(), config.port(), config.selectTimeout(), config.connectTimeout(), config.maxRetries());
+        this(config.hub(), config.port(), config.selectTimeout(), config.connectTimeout(), config.maxRetries(), config.discoveryServicePort());
     }
 
-    public GridClient(String hubAddress, int port, int selectTimeout, int connectTimeout, int maxRetries) {
+    public GridClient(String hubAddress, int port, int selectTimeout, int connectTimeout, int maxRetries, int discoveryServicePort) {
         this.hubAddress = hubAddress;
         this.port = port;
         this.selectTimeout = selectTimeout;
         this.connectTimeout = connectTimeout;
         this.maxRetries = maxRetries;
+        this.discoveryServicePort = discoveryServicePort;
     }
 
     public void init() {
+        if (StringUtils.isNullOrEmpty(hubAddress)) {
+            DiscoveryClient discoveryClient = new DiscoveryClient(discoveryServicePort);
+            InetSocketAddress address = discoveryClient.discover();
+            if (address == null) {
+                throw new IllegalStateException("Hub address not specified and discovery there's no result in server discovery");
+            }
+            hubAddress = address.getHostString();
+            port = address.getPort();
+        }
         // Configure the client.
         bootstrap = new ClientBootstrap(
                 new NioClientSocketChannelFactory(

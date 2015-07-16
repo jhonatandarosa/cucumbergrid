@@ -5,6 +5,7 @@ import java.util.concurrent.Executors;
 import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import org.cucumbergrid.junit.netty.DiscoveryServer;
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.hub.CucumberGridServerHandler;
@@ -16,20 +17,23 @@ import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 public class GridServer  {
 
     private int port;
+    private int discoveryServicePort;
     private InetAddress serverAddress;
 
     private CucumberGridServerHandler handler;
     private ServerBootstrap bootstrap;
     private Channel channel;
     private InetSocketAddress inetSocketAddress;
+    private DiscoveryServer discoveryServer;
 
-    public GridServer(int port) {
+    public GridServer(int port, int discoveryServicePort) {
         this.port = port;
+        this.discoveryServicePort = discoveryServicePort;
     }
 
 
     public GridServer(CucumberGridHub config) {
-        this(config.port());
+        this(config.port(), config.discoveryServicePort());
     }
 
     public void setHandler(CucumberGridServerHandler handler) {
@@ -38,7 +42,6 @@ public class GridServer  {
 
     public void init() {
         serverAddress = SysInfo.getInstance().getAddress();
-
 
         bootstrap = new ServerBootstrap(
                 new NioServerSocketChannelFactory(
@@ -57,12 +60,18 @@ public class GridServer  {
             channel = bootstrap.bind(inetSocketAddress);
         }
 
+        discoveryServer = new DiscoveryServer(discoveryServicePort);
+        discoveryServer.start();
+        discoveryServer.setServerAddress(inetSocketAddress);
+
         System.out.println("Server listening to " + inetSocketAddress);
     }
 
     public void shutdown() {
         channel.disconnect();
         bootstrap.releaseExternalResources();
+
+        discoveryServer.shutdown();
     }
 
     public void broadcast(Message message) {
