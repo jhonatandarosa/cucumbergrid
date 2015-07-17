@@ -1,8 +1,11 @@
 package org.cucumbergrid.junit.runtime;
 
-import cucumber.api.CucumberOptions;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Logger;
+
 import cucumber.runtime.RuntimeOptions;
-import cucumber.runtime.RuntimeOptionsFactory;
 import cucumber.runtime.io.MultiLoader;
 import cucumber.runtime.io.ResourceLoader;
 import cucumber.runtime.model.CucumberFeature;
@@ -11,14 +14,9 @@ import cucumber.runtime.model.CucumberScenarioOutline;
 import cucumber.runtime.model.CucumberTagStatement;
 import gherkin.formatter.model.Feature;
 import gherkin.formatter.model.Step;
+import java.io.Serializable;
 import org.junit.runner.Description;
 import org.junit.runner.notification.RunNotifier;
-
-import java.io.Serializable;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
 
 public abstract class CucumberGridRuntime {
 
@@ -31,10 +29,12 @@ public abstract class CucumberGridRuntime {
 
     public CucumberGridRuntime(Class clazz) {
         this.clazz = clazz;
+    }
+
+    protected void loadFeatures(CucumberGridRuntimeOptionsFactory factory) {
         ClassLoader classLoader = clazz.getClassLoader();
 
-        RuntimeOptionsFactory runtimeOptionsFactory = new RuntimeOptionsFactory(clazz, new Class[]{CucumberOptions.class});
-        RuntimeOptions runtimeOptions = runtimeOptionsFactory.create();
+        RuntimeOptions runtimeOptions = factory.create();
         ResourceLoader resourceLoader = new MultiLoader(classLoader);
 
         cucumberFeatures = runtimeOptions.cucumberFeatures(resourceLoader);
@@ -63,7 +63,7 @@ public abstract class CucumberGridRuntime {
                     Description scenarioDescription = getDescription((CucumberScenario) cucumberTagStatement);
                     description.addChild(scenarioDescription);
                 } else if (cucumberTagStatement instanceof CucumberScenarioOutline) {
-
+                    System.out.println("scenario outline " + cucumberTagStatement);
                 }
             }
 

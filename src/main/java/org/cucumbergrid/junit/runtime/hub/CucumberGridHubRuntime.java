@@ -1,5 +1,6 @@
 package org.cucumbergrid.junit.runtime.hub;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
@@ -10,11 +11,11 @@ import java.util.logging.Level;
 import cucumber.api.CucumberOptions;
 import cucumber.api.junit.Cucumber;
 import cucumber.runtime.RuntimeOptions;
-import cucumber.runtime.RuntimeOptionsFactory;
 import cucumber.runtime.model.CucumberFeature;
 import java.io.Serializable;
 import org.cucumbergrid.junit.runner.CucumberGridHub;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
+import org.cucumbergrid.junit.runtime.CucumberGridRuntimeOptionsFactory;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
 import org.cucumbergrid.junit.runtime.common.FormatMessage;
 import org.cucumbergrid.junit.runtime.common.Message;
@@ -39,6 +40,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private CucumberGridServerFormatterHandler formatterHandler;
     private ConcurrentHashMap<Integer, Set<CucumberFeature>> unknownFeaturesByClient = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, NodeInfo> nodeInfos = new ConcurrentHashMap<>();
+    private CucumberGridRuntimeOptionsFactory runtimeOptionsFactory;
 
     public CucumberGridHubRuntime(Class clazz) {
         super(clazz);
@@ -46,11 +48,15 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         CucumberGridHub config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridHub.class);
         server = new GridServer(config);
         server.setHandler(this);
+
+        ClassLoader classLoader = clazz.getClassLoader();
+        runtimeOptionsFactory = new CucumberGridRuntimeOptionsFactory(clazz, new Class[]{CucumberOptions.class, Cucumber.Options.class});
+
+        loadFeatures(runtimeOptionsFactory);
+
         featuresToExecute = new LinkedList<>(cucumberFeatures);
         featuresExecuted = new ConcurrentLinkedDeque<>();
 
-        ClassLoader classLoader = clazz.getClassLoader();
-        RuntimeOptionsFactory runtimeOptionsFactory = new RuntimeOptionsFactory(clazz, new Class[]{CucumberOptions.class, Cucumber.Options.class});
         RuntimeOptions runtimeOptions = runtimeOptionsFactory.create();
 
         reporter = new CucumberGridReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
@@ -172,11 +178,20 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             case NODE_INFO:
                 onNodeInfoMessage(channel, message);
                 break;
+            case CUCUMBER_OPTIONS:
+                onCucumberOptions(channel, message);
+                break;
             default:
                 System.out.println("Unknown message: " + message.getID() + " " + message.getData());
 
         }
         return null;
+    }
+
+    private void onCucumberOptions(Channel channel, Message message) {
+        ArrayList<String> args = runtimeOptionsFactory.buildArgsFromOptions();
+        Message response = new Message(MessageID.CUCUMBER_OPTIONS, args);
+        channel.write(response);
     }
 
     NodeInfo getNodeInfo(Integer channelId) {

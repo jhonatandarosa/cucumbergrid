@@ -1,14 +1,12 @@
 package org.cucumbergrid.junit.runtime.node;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
-import cucumber.api.CucumberOptions;
-import cucumber.api.junit.Cucumber;
 import cucumber.runtime.ClassFinder;
 import cucumber.runtime.Runtime;
 import cucumber.runtime.RuntimeOptions;
-import cucumber.runtime.RuntimeOptionsFactory;
 import cucumber.runtime.io.MultiLoader;
 import cucumber.runtime.io.ResourceLoader;
 import cucumber.runtime.io.ResourceLoaderClassFinder;
@@ -23,6 +21,7 @@ import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runner.NodePropertyRetriever;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
+import org.cucumbergrid.junit.runtime.CucumberGridRuntimeOptionsFactory;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
@@ -42,8 +41,8 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     private GridClient client;
     private Description description;
     private RunNotifier currentNotifier;
-    private final JUnitReporter jUnitReporter;
-    private final Runtime runtime;
+    private JUnitReporter jUnitReporter;
+    private Runtime runtime;
     private CucumberGridRemoteFormatter formatter;
     private NodeInfo nodeInfo;
 
@@ -54,8 +53,15 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         client = new GridClient(config);
         client.setHandler(this);
 
+        nodeInfo = createNodeInfo();
+    }
+
+    private void initCucumber(List<String> args) throws InitializationError, IOException {
         ClassLoader classLoader = clazz.getClassLoader();
-        RuntimeOptionsFactory runtimeOptionsFactory = new RuntimeOptionsFactory(clazz, new Class[]{CucumberOptions.class, Cucumber.Options.class});
+        CucumberGridRuntimeOptionsFactory runtimeOptionsFactory = new CucumberGridRuntimeOptionsFactory(args);
+
+        loadFeatures(runtimeOptionsFactory);
+
         RuntimeOptions runtimeOptions = runtimeOptionsFactory.create();
 
         ResourceLoader resourceLoader = new MultiLoader(classLoader);
@@ -63,8 +69,6 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
         formatter = new CucumberGridRemoteFormatter(client);
         jUnitReporter = new JUnitReporter(formatter, formatter, runtimeOptions.isStrict());
-
-        nodeInfo = createNodeInfo();
     }
 
     private NodeInfo createNodeInfo() {
@@ -116,7 +120,8 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
         client.send(new Message(MessageID.NODE_INFO, nodeInfo));
 
-        client.send(new Message(MessageID.REQUEST_FEATURE));
+        client.send(new Message(MessageID.CUCUMBER_OPTIONS));
+
         // server has features to execute
         while (client.isConnected()) {
             // process
@@ -139,6 +144,9 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
             case EXECUTE_FEATURE:
                 onExecuteFeature(message);
                 break;
+            case CUCUMBER_OPTIONS:
+                onCucumberOptions(message);
+                break;
             case NO_MORE_FEATURES:
                 System.out.println("no more features");
                 break;
@@ -147,6 +155,19 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
                 client.shutdown();
                 break;
         }
+    }
+
+    private void onCucumberOptions(Message message) {
+        ArrayList<String> args = message.getData();
+        try {
+            initCucumber(args);
+        } catch (InitializationError initializationError) {
+            initializationError.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        client.send(new Message(MessageID.REQUEST_FEATURE));
     }
 
     private void onExecuteFeature(Message message) throws InitializationError {

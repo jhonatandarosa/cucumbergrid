@@ -19,5 +19,7 @@ public enum MessageID {
     RESULTS,
     FORMAT,
     SHUTDOWN,
+
     NODE_INFO,
+    CUCUMBER_OPTIONS,
 }
