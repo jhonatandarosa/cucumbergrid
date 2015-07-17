@@ -57,7 +57,7 @@ public class DiscoveryServer {
     }
 
     public void shutdown() {
-        channel.disconnect();
+        channel.close();
         bootstrap.releaseExternalResources();
     }
 

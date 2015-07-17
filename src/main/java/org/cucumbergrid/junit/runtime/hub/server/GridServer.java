@@ -68,10 +68,11 @@ public class GridServer  {
     }
 
     public void shutdown() {
-        channel.disconnect();
+        discoveryServer.shutdown();
+
+        channel.close();
         bootstrap.releaseExternalResources();
 
-        discoveryServer.shutdown();
     }
 
     public void broadcast(Message message) {

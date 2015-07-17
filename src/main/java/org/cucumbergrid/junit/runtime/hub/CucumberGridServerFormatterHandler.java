@@ -45,6 +45,7 @@ public class CucumberGridServerFormatterHandler {
         getMessages(channelId).add(message);
         if (message.getID() == FormatMessageID.EOF) {
             flushMessages(channelId);
+            runtime.onFeatureFinished(channelId);
         }
     }
 

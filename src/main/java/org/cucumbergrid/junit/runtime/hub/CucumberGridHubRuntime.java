@@ -31,7 +31,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
     private Description description;
     private GridServer server;
-    private LinkedList<CucumberFeature> featuresToExecute;
+    private final LinkedList<CucumberFeature> featuresToExecute;
     private ConcurrentLinkedDeque<CucumberFeature> featuresExecuted;
     private ConcurrentHashMap<Integer, CucumberFeature> featureBeingExecuted = new ConcurrentHashMap<>();
     private RunNotifier notifier;
@@ -109,10 +109,10 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         server.broadcast(new Message(MessageID.SHUTDOWN));
 
 
-        server.shutdown();
-
         reporter.done();
         reporter.close();
+
+        server.shutdown();
 //        runtime.printSummary();
     }
 
@@ -127,6 +127,10 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 //            System.out.println("response sent");
         }
 
+    }
+
+    public void onFeatureFinished(Integer channelId) {
+        featureBeingExecuted.remove(channelId);
     }
 
     @Override
@@ -259,4 +263,6 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             return new Message(MessageID.NO_MORE_FEATURES);
         }
     }
+
+
 }
