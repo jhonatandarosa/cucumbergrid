@@ -22,4 +22,6 @@ public enum MessageID {
 
     NODE_INFO,
     CUCUMBER_OPTIONS,
+
+    ADMIN,
 }

@@ -21,6 +21,7 @@ import org.cucumbergrid.junit.runtime.common.FormatMessage;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
 import org.cucumbergrid.junit.runtime.common.NodeInfo;
+import org.cucumbergrid.junit.runtime.common.admin.AdminMessage;
 import org.cucumbergrid.junit.runtime.hub.server.GridServer;
 import org.cucumbergrid.junit.utils.ReflectionUtils;
 import org.jboss.netty.channel.Channel;
@@ -181,11 +182,25 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             case CUCUMBER_OPTIONS:
                 onCucumberOptions(channel, message);
                 break;
+            case ADMIN:
+                onAdminMessage(channel, message);
+                break;
             default:
                 System.out.println("Unknown message: " + message.getID() + " " + message.getData());
 
         }
         return null;
+    }
+
+    private void onAdminMessage(Channel channel, Message message) {
+        AdminMessage adminMessage = message.getData();
+        switch (adminMessage.getID()) {
+            case FINISH_GRACEFULLY:
+                System.out.println("Finish requested by admin...");
+                featuresExecuted.clear();
+                cucumberFeatures.clear();
+                break;
+        }
     }
 
     private void onCucumberOptions(Channel channel, Message message) {

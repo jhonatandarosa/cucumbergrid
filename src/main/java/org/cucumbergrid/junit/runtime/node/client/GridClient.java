@@ -8,7 +8,6 @@ import java.net.InetSocketAddress;
 import org.cucumbergrid.junit.netty.DiscoveryClient;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runtime.node.CucumberGridClientHandler;
-import org.cucumbergrid.junit.runtime.node.CucumberGridNodeRuntime;
 import org.cucumbergrid.junit.utils.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
@@ -22,25 +21,18 @@ public class GridClient {
     private CucumberGridClientHandler handler;
     private String hubAddress;
     private int port;
-    private int selectTimeout;
-    private int connectTimeout;
-    private int maxRetries;
-    private int retries;
     private Channel channel;
     private ClientBootstrap bootstrap;
     private ConcurrentLinkedDeque<Serializable> pendingMessages = new ConcurrentLinkedDeque<>();
     private boolean shutdownScheduled;
 
     public GridClient(CucumberGridNode config) {
-        this(config.hub(), config.port(), config.selectTimeout(), config.connectTimeout(), config.maxRetries(), config.discoveryServicePort());
+        this(config.hub(), config.port(), config.discoveryServicePort());
     }
 
-    public GridClient(String hubAddress, int port, int selectTimeout, int connectTimeout, int maxRetries, int discoveryServicePort) {
+    public GridClient(String hubAddress, int port, int discoveryServicePort) {
         this.hubAddress = hubAddress;
         this.port = port;
-        this.selectTimeout = selectTimeout;
-        this.connectTimeout = connectTimeout;
-        this.maxRetries = maxRetries;
         this.discoveryServicePort = discoveryServicePort;
     }
 
@@ -72,7 +64,7 @@ public class GridClient {
 
     }
 
-    public void setHandler(CucumberGridNodeRuntime handler) {
+    public void setHandler(CucumberGridClientHandler handler) {
         this.handler = handler;
     }
 
@@ -113,11 +105,12 @@ public class GridClient {
     public void shutdown() {
         shutdown(true);
     }
+
     public void shutdown(boolean gracefully) {
         if (gracefully && !pendingMessages.isEmpty()) {
             shutdownScheduled = true;
         } else {
-            channel.disconnect();
+            channel.close();
         }
     }
 
