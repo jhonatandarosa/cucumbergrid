@@ -1,6 +1,7 @@
 package org.cucumbergrid.junit.admin.nodestable;
 
 import javax.swing.table.DefaultTableModel;
+import org.cucumbergrid.junit.runtime.common.NodeInfo;
 
 public class NodesTableModel extends DefaultTableModel {
 
@@ -11,9 +12,18 @@ public class NodesTableModel extends DefaultTableModel {
                 "Username",
                 "Address",
         });
+    }
 
+    public void clear() {
+        setRowCount(0);
+    }
+
+    public void addRow(Integer channel, NodeInfo nodeInfo) {
         addRow(new String[]{
-                "1231", "D0961", "jhonatan.rosa", "192.168.172.67"
+                channel.toString(),
+                nodeInfo.getOs().getHostname(),
+                nodeInfo.getOs().getUsername(),
+                nodeInfo.getAddress()
         });
     }
 }

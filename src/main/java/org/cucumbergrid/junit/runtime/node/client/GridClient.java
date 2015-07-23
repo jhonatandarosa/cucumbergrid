@@ -61,7 +61,6 @@ public class GridClient {
 
         // Wait until the connection attempt succeeds or fails.
         channel = future.awaitUninterruptibly().getChannel();
-
     }
 
     public void setHandler(CucumberGridClientHandler handler) {
@@ -99,7 +98,7 @@ public class GridClient {
     }
 
     public boolean isConnected() {
-        return channel.isConnected();
+        return channel != null && channel.isConnected();
     }
 
     public void shutdown() {
@@ -111,6 +110,7 @@ public class GridClient {
             shutdownScheduled = true;
         } else {
             channel.close();
+            pendingMessages.clear();
         }
     }
 

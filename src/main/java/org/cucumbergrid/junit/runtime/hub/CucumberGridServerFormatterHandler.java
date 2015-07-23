@@ -37,6 +37,10 @@ public class CucumberGridServerFormatterHandler {
         messages.remove(channelId);
     }
 
+    public void discardAll() {
+        messages.clear();
+    }
+
     /**
      * @param channelId a uniquely identifier to node that sent the message
      * @param message the message

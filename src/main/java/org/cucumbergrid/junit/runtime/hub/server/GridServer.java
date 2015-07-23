@@ -1,5 +1,7 @@
 package org.cucumbergrid.junit.runtime.hub.server;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 
 import java.io.Serializable;
@@ -12,6 +14,8 @@ import org.cucumbergrid.junit.runtime.hub.CucumberGridServerHandler;
 import org.cucumbergrid.junit.sysinfo.SysInfo;
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
 public class GridServer  {
@@ -69,17 +73,25 @@ public class GridServer  {
 
     public void shutdown() {
         discoveryServer.shutdown();
-
+        GridServerHandler.channels.close();
         channel.close();
         bootstrap.releaseExternalResources();
 
     }
 
-    public void broadcast(Message message) {
-        GridServerHandler.channels.write(message);
+    public ChannelGroupFuture broadcast(Message message) {
+        return GridServerHandler.channels.write(message);
     }
 
-    public void send(Channel channel, Serializable data) {
-        channel.write(data);
+    public ChannelFuture send(Channel channel, Serializable data) {
+        return channel.write(data);
+    }
+
+    public List<Integer> getConnectedNodes() {
+        List<Integer> ids = new ArrayList<>();
+        for (Channel channel : GridServerHandler.channels) {
+            ids.add(channel.getId());
+        }
+        return ids;
     }
 }

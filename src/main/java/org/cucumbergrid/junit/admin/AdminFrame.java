@@ -15,6 +15,7 @@ public class AdminFrame extends JFrame {
     private JPanel mainPanel;
     private JTable nodesTable;
     private JPanel adminActionsPanel;
+    private JPanel statsPanel;
 
     public AdminFrame(AdminApp adminApp) {
         this.adminApp = adminApp;
@@ -46,8 +47,10 @@ public class AdminFrame extends JFrame {
         if (mainPanel == null) {
             mainPanel = new JPanel();
             mainPanel.setLayout(new BorderLayout());
+            mainPanel.add(getStatsPanel(), BorderLayout.PAGE_START);
+
             JTable table = getNodesTable();
-            mainPanel.add(table.getTableHeader(), BorderLayout.PAGE_START);
+            mainPanel.add(table.getTableHeader(), BorderLayout.NORTH);
             JScrollPane scroll = new JScrollPane(table);
             table.setFillsViewportHeight(true);
             mainPanel.add(scroll);
@@ -55,9 +58,16 @@ public class AdminFrame extends JFrame {
         return mainPanel;
     }
 
+    private JPanel getStatsPanel() {
+        if (statsPanel == null) {
+            statsPanel = new StatsPanel();
+        }
+        return statsPanel;
+    }
+
     private JTable getNodesTable() {
         if (nodesTable == null) {
-            nodesTable = new NodesTable();
+            nodesTable = new NodesTable(this);
         }
         return nodesTable;
     }
@@ -65,4 +75,13 @@ public class AdminFrame extends JFrame {
     public AdminApp getAdminApp() {
         return adminApp;
     }
+
+    public void mask() {
+        mainPanel.setEnabled(false);
+    }
+
+    public void unMask() {
+        mainPanel.setEnabled(true);
+    }
+
 }

@@ -1,8 +1,11 @@
 package org.cucumbergrid.junit.runtime.hub;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -22,6 +25,7 @@ import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
 import org.cucumbergrid.junit.runtime.common.NodeInfo;
 import org.cucumbergrid.junit.runtime.common.admin.AdminMessage;
+import org.cucumbergrid.junit.runtime.common.admin.GridStats;
 import org.cucumbergrid.junit.runtime.hub.server.GridServer;
 import org.cucumbergrid.junit.utils.ReflectionUtils;
 import org.jboss.netty.channel.Channel;
@@ -39,9 +43,11 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     private RunNotifier notifier;
     private CucumberGridReporter reporter;
     private CucumberGridServerFormatterHandler formatterHandler;
+    private CucumberGridServerAdminHandler adminHandler;
     private ConcurrentHashMap<Integer, Set<CucumberFeature>> unknownFeaturesByClient = new ConcurrentHashMap<>();
     private ConcurrentHashMap<Integer, NodeInfo> nodeInfos = new ConcurrentHashMap<>();
     private CucumberGridRuntimeOptionsFactory runtimeOptionsFactory;
+    private boolean running;
 
     public CucumberGridHubRuntime(Class clazz) {
         super(clazz);
@@ -62,6 +68,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
         reporter = new CucumberGridReporter(runtimeOptions.reporter(classLoader), runtimeOptions.formatter(classLoader), runtimeOptions.isStrict());
         formatterHandler = new CucumberGridServerFormatterHandler(this, reporter);
+        adminHandler = new CucumberGridServerAdminHandler(this);
     }
 
     private Set<CucumberFeature> getUnknownFeatures(Channel channel) {
@@ -90,8 +97,10 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
         this.notifier = notifier;
         server.init();
 
+        running = true;
+
         // has more features
-        while (featuresExecuted.size() != cucumberFeatures.size()) {
+        while (featuresExecuted.size() < cucumberFeatures.size()) {
             // process
 //            server.process();
             try {
@@ -112,15 +121,21 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             }
         }
 
+        logger.log(Level.INFO, "broadcasting shutdown");
         // when all features finished, send a shutdown message
-        server.broadcast(new Message(MessageID.SHUTDOWN));
+        server.broadcast(new Message(MessageID.SHUTDOWN)).awaitUninterruptibly();
 
 
+        logger.log(Level.INFO, "Generating report...");
         reporter.done();
         reporter.close();
 
+        logger.log(Level.INFO, "Report generated");
+
+        logger.log(Level.INFO, "Stopping server...");
         server.shutdown();
-//        runtime.printSummary();
+
+        logger.log(Level.INFO, "Server stopped");
     }
 
     @Override
@@ -143,7 +158,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     @Override
     public void onNodeDisconnected(Channel channel) {
         CucumberFeature feature = featureBeingExecuted.remove(channel.getId());
-        if (feature != null) {
+        if (feature != null && running) {
             System.out.println("Adding " + CucumberUtils.getUniqueID(feature) + " to be executed again");
             synchronized (featuresToExecute) {
                 featuresToExecute.add(feature);
@@ -194,13 +209,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
     private void onAdminMessage(Channel channel, Message message) {
         AdminMessage adminMessage = message.getData();
-        switch (adminMessage.getID()) {
-            case FINISH_GRACEFULLY:
-                System.out.println("Finish requested by admin...");
-                featuresExecuted.clear();
-                cucumberFeatures.clear();
-                break;
-        }
+        adminHandler.onAdminMessage(channel, adminMessage);
     }
 
     private void onCucumberOptions(Channel channel, Message message) {
@@ -211,6 +220,14 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
 
     NodeInfo getNodeInfo(Integer channelId) {
         return nodeInfos.get(channelId);
+    }
+
+    Map<Integer, NodeInfo> getNodeInfos() {
+        return new HashMap<>(nodeInfos);
+    }
+
+    List<Integer> getConnectedNodes() {
+        return server.getConnectedNodes();
     }
 
     private void onNodeInfoMessage(Channel channel, Message message) {
@@ -255,7 +272,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     }
 
     private Message processRequestFeature(Channel channel) {
-        if (featuresToExecute.isEmpty()) {
+        if (featuresToExecute.isEmpty() || !running) {
             return new Message(MessageID.NO_MORE_FEATURES);
         }
         CucumberFeature feature;
@@ -295,4 +312,23 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     }
 
 
+    public void finish(boolean gracefully) {
+        featuresExecuted.clear();
+        cucumberFeatures.clear();
+
+        if (!gracefully) {
+            formatterHandler.discardAll();
+        }
+        running = false;
+
+    }
+
+    public GridStats getGridStats() {
+        GridStats stats = new GridStats();
+
+        stats.totalFeatures = cucumberFeatures.size();
+        stats.featuresExecuted = featuresExecuted.size();
+
+        return stats;
+    }
 }

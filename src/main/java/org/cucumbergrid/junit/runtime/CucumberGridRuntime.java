@@ -1,5 +1,7 @@
 package org.cucumbergrid.junit.runtime;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,12 @@ public abstract class CucumberGridRuntime {
         ResourceLoader resourceLoader = new MultiLoader(classLoader);
 
         cucumberFeatures = runtimeOptions.cucumberFeatures(resourceLoader);
+        Collections.sort(cucumberFeatures, new Comparator<CucumberFeature>() {
+            @Override
+            public int compare(CucumberFeature o1, CucumberFeature o2) {
+                return Integer.compare(o1.getFeatureElements().size(), o2.getFeatureElements().size()) * -1;
+            }
+        });
 
         featureByID = new HashMap<>();
         for (CucumberFeature feature : cucumberFeatures) {
