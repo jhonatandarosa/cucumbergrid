@@ -18,6 +18,7 @@ import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 public class GridClient {
 
     private int discoveryServicePort;
+    private int discoveryServiceTimeout;
     private CucumberGridClientHandler handler;
     private String hubAddress;
     private int port;
@@ -27,18 +28,19 @@ public class GridClient {
     private boolean shutdownScheduled;
 
     public GridClient(CucumberGridNode config) {
-        this(config.hub(), config.port(), config.discoveryServicePort());
+        this(config.hub(), config.port(), config.discoveryServicePort(), config.discoveryServiceTimeout());
     }
 
-    public GridClient(String hubAddress, int port, int discoveryServicePort) {
+    public GridClient(String hubAddress, int port, int discoveryServicePort, int discoveryServiceTimeout) {
         this.hubAddress = hubAddress;
         this.port = port;
         this.discoveryServicePort = discoveryServicePort;
+        this.discoveryServiceTimeout = discoveryServiceTimeout;
     }
 
     public void init() {
         if (StringUtils.isNullOrEmpty(hubAddress)) {
-            DiscoveryClient discoveryClient = new DiscoveryClient(discoveryServicePort);
+            DiscoveryClient discoveryClient = new DiscoveryClient(discoveryServicePort, discoveryServiceTimeout);
             InetSocketAddress address = discoveryClient.discover();
             if (address == null) {
                 throw new IllegalStateException("Hub address not specified and discovery there's no result in server discovery");

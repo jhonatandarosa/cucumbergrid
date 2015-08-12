@@ -43,10 +43,12 @@ public class DiscoveryClient {
     };
 
     private int port;
+    private int discoveryTimeout;
     private InetSocketAddress address;
 
-    public DiscoveryClient(int port) {
+    public DiscoveryClient(int port, int discoveryTimeout) {
         this.port = port;
+        this.discoveryTimeout = discoveryTimeout;
     }
 
     public InetSocketAddress discover() {
@@ -85,7 +87,7 @@ public class DiscoveryClient {
             // handler will close the DatagramChannel when a
             // response is received.  If the channel is not closed within 5 seconds,
             // print an error message and quit.
-            if (!c.getCloseFuture().await(5000)) {
+            if (!c.getCloseFuture().await(discoveryTimeout)) {
                 System.err.println("Discover request timed out.");
                 c.close().awaitUninterruptibly();
             }
@@ -99,6 +101,6 @@ public class DiscoveryClient {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        System.out.println(new DiscoveryClient(3299).discover());
+        System.out.println(new DiscoveryClient(3299, 5000).discover());
     }
 }
