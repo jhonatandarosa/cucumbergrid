@@ -26,7 +26,7 @@ public class AdminApp implements CucumberGridClientHandler {
     private AdminFrame frame;
 
     public void start() {
-        client = new GridClient(null, 26000, 26001);
+        client = new GridClient(null, 26000, 26001, 60000);
         client.setHandler(this);
         frame = new AdminFrame(this);
 
