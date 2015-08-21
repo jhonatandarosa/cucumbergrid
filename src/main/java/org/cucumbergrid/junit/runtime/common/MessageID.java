@@ -1,9 +1,12 @@
 package org.cucumbergrid.junit.runtime.common;
 
 public enum MessageID {
+    DISCOVERY,
+
     REQUEST_FEATURE,
     EXECUTE_FEATURE,
     NO_MORE_FEATURES,
+    UNKNOWN_FEATURE,
 
     TEST_STARTED,
     TEST_FINISHED,
@@ -16,4 +19,9 @@ public enum MessageID {
     RESULTS,
     FORMAT,
     SHUTDOWN,
+
+    NODE_INFO,
+    CUCUMBER_OPTIONS,
+
+    ADMIN,
 }

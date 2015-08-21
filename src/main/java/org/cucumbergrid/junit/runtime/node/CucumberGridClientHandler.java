@@ -1,8 +1,9 @@
 package org.cucumbergrid.junit.runtime.node;
 
-import java.nio.channels.SelectionKey;
+import org.cucumbergrid.junit.runtime.common.Message;
+import org.jboss.netty.channel.Channel;
 
 public interface CucumberGridClientHandler {
-    void onDataReceived(SelectionKey key, byte[] data);
+    void onDataReceived(Channel key, Message data);
 
 }
