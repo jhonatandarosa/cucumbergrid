@@ -1,9 +1,5 @@
 package org.cucumbergrid.junit.runtime.node;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
-
 import cucumber.runtime.ClassFinder;
 import cucumber.runtime.Runtime;
 import cucumber.runtime.RuntimeOptions;
@@ -15,8 +11,6 @@ import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
 import cucumber.runtime.model.CucumberTagStatement;
-import java.io.IOException;
-import java.io.Serializable;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runner.NodePropertyRetriever;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
@@ -36,6 +30,12 @@ import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.InitializationError;
 
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+
 public class CucumberGridNodeRuntime extends CucumberGridRuntime implements CucumberGridClientHandler {
 
     private GridClient client;
@@ -45,10 +45,11 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     private Runtime runtime;
     private CucumberGridRemoteFormatter formatter;
     private NodeInfo nodeInfo;
+    private final CucumberGridNode config;
 
     public CucumberGridNodeRuntime(Class clazz) throws IOException, InitializationError {
         super(clazz);
-        CucumberGridNode config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridNode.class);
+        config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridNode.class);
 
         client = new GridClient(config);
         client.setHandler(this);
@@ -77,7 +78,6 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         info.setOs(sysInfo.getOperatingSystem());
         info.setAddress(sysInfo.getAddress().getHostName());
 
-        CucumberGridNode config = ReflectionUtils.getDeclaredAnnotation(clazz, CucumberGridNode.class);
         Class<? extends NodePropertyRetriever> retrieverClass = config.retriever();
         if (!NodePropertyRetriever.class.equals(retrieverClass)) {
             try {
@@ -90,6 +90,21 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
             }
         }
         return info;
+    }
+
+    private List<RunListener> getListeners() {
+        ArrayList<RunListener> listeners = new ArrayList<>();
+        for (Class<? extends RunListener> clazz : config.listeners()) {
+            try {
+                listeners.add(clazz.newInstance());
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return listeners;
     }
 
     /**
@@ -113,6 +128,11 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     @Override
     public void run(RunNotifier notifier) {
         currentNotifier = notifier;
+
+        for (RunListener listener : getListeners()) {
+            notifier.addListener(listener);
+        }
+
         notifier.addListener(new CucumberGridRunListener());
         client.init();
 
@@ -205,7 +225,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
     @Override
     public void onDataReceived(Channel channel, Message data) {
         try {
-            process((Message)data);
+            process(data);
         } catch (InitializationError e) {
             logger.log(Level.SEVERE, e.getMessage(), e);
         }
