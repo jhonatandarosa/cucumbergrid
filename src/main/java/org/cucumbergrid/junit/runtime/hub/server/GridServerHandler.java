@@ -1,5 +1,8 @@
 package org.cucumbergrid.junit.runtime.hub.server;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.hub.CucumberGridServerHandler;
 import org.jboss.netty.channel.Channel;
@@ -14,6 +17,7 @@ import org.jboss.netty.channel.group.DefaultChannelGroup;
 
 public class GridServerHandler extends SimpleChannelUpstreamHandler {
 
+    private Logger logger = Logger.getLogger(getClass().getName());
     static final ChannelGroup channels = new DefaultChannelGroup();
     private CucumberGridServerHandler handler;
 
@@ -24,7 +28,7 @@ public class GridServerHandler extends SimpleChannelUpstreamHandler {
     @Override
     public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception {
         if (e instanceof ChannelStateEvent) {
-            System.err.println(e);
+            logger.log(Level.SEVERE, "Error handling upstream", e);
         }
         super.handleUpstream(ctx, e);
     }

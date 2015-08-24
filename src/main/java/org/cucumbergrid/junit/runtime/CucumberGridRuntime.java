@@ -25,7 +25,7 @@ public abstract class CucumberGridRuntime {
     protected Class clazz;
     protected List<CucumberFeature> cucumberFeatures;
     private Map<Serializable, Description> descriptionMap = new HashMap<>();
-    protected Logger logger = Logger.getAnonymousLogger();
+    protected Logger logger = Logger.getLogger(getClass().getName());
     private Map<Serializable, CucumberFeature> featureByID;
 
 
@@ -71,7 +71,7 @@ public abstract class CucumberGridRuntime {
                     Description scenarioDescription = getDescription((CucumberScenario) cucumberTagStatement);
                     description.addChild(scenarioDescription);
                 } else if (cucumberTagStatement instanceof CucumberScenarioOutline) {
-                    System.out.println("scenario outline " + cucumberTagStatement);
+                    logger.warning("scenario outline " + cucumberTagStatement);
                 }
             }
 

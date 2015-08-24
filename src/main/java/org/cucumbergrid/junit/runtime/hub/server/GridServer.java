@@ -3,6 +3,7 @@ package org.cucumbergrid.junit.runtime.hub.server;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 import java.io.Serializable;
 import java.net.InetAddress;
@@ -19,6 +20,8 @@ import org.jboss.netty.channel.group.ChannelGroupFuture;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
 public class GridServer  {
+
+    private Logger logger = Logger.getLogger(getClass().getName());
 
     private int port;
     private int discoveryServicePort;
@@ -68,7 +71,7 @@ public class GridServer  {
         discoveryServer.start();
         discoveryServer.setServerAddress(inetSocketAddress);
 
-        System.out.println("Server listening to " + inetSocketAddress);
+        logger.info("Server listening to " + inetSocketAddress);
     }
 
     public void shutdown() {

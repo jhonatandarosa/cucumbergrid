@@ -1,6 +1,7 @@
 package org.cucumbergrid.junit.netty;
 
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 import java.net.InetSocketAddress;
 import org.cucumbergrid.junit.runtime.common.Message;
@@ -20,6 +21,9 @@ import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 
 public class DiscoveryClient {
+
+    private Logger logger = Logger.getLogger(DiscoveryClient.class.getName());
+
     SimpleChannelUpstreamHandler handler = new SimpleChannelUpstreamHandler() {
 
         @Override
@@ -29,7 +33,7 @@ public class DiscoveryClient {
                 Message msg = (Message) obj;
                 if (msg.getID() == MessageID.DISCOVERY) {
                     address = msg.getData();
-                    System.out.println("Address discovered: " + address.toString());
+                    logger.info("Address discovered: " + address.toString());
                     e.getChannel().close();
                 }
             }
@@ -52,7 +56,7 @@ public class DiscoveryClient {
     }
 
     public InetSocketAddress discover() {
-        System.out.println("starting discovery service");
+        logger.info("starting discovery service");
         address = null;
         ConnectionlessBootstrap bootstrap = new ConnectionlessBootstrap(
                 new NioDatagramChannelFactory(Executors.newCachedThreadPool()));
@@ -88,7 +92,7 @@ public class DiscoveryClient {
             // response is received.  If the channel is not closed within 5 seconds,
             // print an error message and quit.
             if (!c.getCloseFuture().await(discoveryTimeout)) {
-                System.err.println("Discover request timed out.");
+                logger.warning("Discover request timed out.");
                 c.close().awaitUninterruptibly();
             }
         } catch (InterruptedException e) {

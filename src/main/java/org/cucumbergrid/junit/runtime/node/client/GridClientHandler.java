@@ -1,10 +1,15 @@
 package org.cucumbergrid.junit.runtime.node.client;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.node.CucumberGridClientHandler;
 import org.jboss.netty.channel.*;
 
 public class GridClientHandler extends SimpleChannelUpstreamHandler {
+
+    private Logger logger = Logger.getLogger(getClass().getName());
 
     private final CucumberGridClientHandler handler;
     private final GridClient gridClient;
@@ -18,7 +23,7 @@ public class GridClientHandler extends SimpleChannelUpstreamHandler {
     public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception {
         if (e instanceof ChannelStateEvent) {
             if (((ChannelStateEvent) e).getState() != ChannelState.INTEREST_OPS) {
-                System.err.println(e);
+                logger.log(Level.SEVERE, "Error handling upstream", e);
             }
         }
         super.handleUpstream(ctx, e);

@@ -121,32 +121,29 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
             }
         }
 
-        logger.log(Level.INFO, "broadcasting shutdown");
+        logger.info("broadcasting shutdown");
         // when all features finished, send a shutdown message
         server.broadcast(new Message(MessageID.SHUTDOWN)).awaitUninterruptibly();
 
 
-        logger.log(Level.INFO, "Generating report...");
+        logger.info("Generating report...");
         reporter.done();
         reporter.close();
 
-        logger.log(Level.INFO, "Report generated");
+        logger.info("Report generated");
 
-        logger.log(Level.INFO, "Stopping server...");
+        logger.info("Stopping server...");
         server.shutdown();
 
-        logger.log(Level.INFO, "Server stopped");
+        logger.info("Server stopped");
     }
 
     @Override
     public void onDataReceived(Channel channel, Message message) {
 
         Message response = process(channel, message);
-//        System.out.println("Data received " + message.getID());
-//        System.out.println("Response " + response);
         if (response != null) {
             server.send(channel, response);
-//            System.out.println("response sent");
         }
 
     }
@@ -159,7 +156,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     public void onNodeDisconnected(Channel channel) {
         CucumberFeature feature = featureBeingExecuted.remove(channel.getId());
         if (feature != null && running) {
-            System.out.println("Adding " + CucumberUtils.getUniqueID(feature) + " to be executed again");
+            logger.info("Adding " + CucumberUtils.getUniqueID(feature) + " to be executed again");
             synchronized (featuresToExecute) {
                 featuresToExecute.add(feature);
             }
@@ -201,7 +198,7 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
                 onAdminMessage(channel, message);
                 break;
             default:
-                System.out.println("Unknown message: " + message.getID() + " " + message.getData());
+                logger.warning("Unknown message: " + message.getID() + " " + message.getData());
 
         }
         return null;

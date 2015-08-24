@@ -2,6 +2,7 @@ package org.cucumbergrid.junit.runtime.node.client;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
@@ -16,6 +17,8 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 
 public class GridClient {
+
+    private Logger logger = Logger.getLogger(getClass().getName());
 
     private int discoveryServicePort;
     private int discoveryServiceTimeout;
@@ -84,7 +87,7 @@ public class GridClient {
             lastFuture = channel.write(pendingMessages.poll());
         }
         if (shutdownScheduled && pendingMessages.isEmpty()) {
-            System.out.println("Shutting down...");
+            logger.info("Shutting down...");
             if (lastFuture != null) {
                 lastFuture.addListener(new ChannelFutureListener() {
                     @Override
@@ -93,7 +96,7 @@ public class GridClient {
                     }
                 });
             } else {
-                System.out.println("closing...");
+                logger.info("closing...");
                 channel.close();
             }
         }

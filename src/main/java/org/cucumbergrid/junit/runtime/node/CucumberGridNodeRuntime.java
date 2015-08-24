@@ -1,5 +1,9 @@
 package org.cucumbergrid.junit.runtime.node;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+
 import cucumber.runtime.ClassFinder;
 import cucumber.runtime.Runtime;
 import cucumber.runtime.RuntimeOptions;
@@ -11,6 +15,8 @@ import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
 import cucumber.runtime.model.CucumberTagStatement;
+import java.io.IOException;
+import java.io.Serializable;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runner.NodePropertyRetriever;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
@@ -29,12 +35,6 @@ import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.InitializationError;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
 
 public class CucumberGridNodeRuntime extends CucumberGridRuntime implements CucumberGridClientHandler {
 
@@ -168,10 +168,10 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
                 onCucumberOptions(message);
                 break;
             case NO_MORE_FEATURES:
-                System.out.println("no more features");
+                logger.info("no more features");
                 break;
             case SHUTDOWN:
-                System.out.println("Shutdown received...");
+                logger.info("Shutdown received...");
                 client.shutdown();
                 break;
         }
@@ -192,7 +192,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
     private void onExecuteFeature(Message message) throws InitializationError {
         Serializable uniqueID = message.getData();
-        System.out.println("Execute feature " + uniqueID);
+        logger.info("Execute feature " + uniqueID);
         CucumberFeature cucumberFeature = getFeatureByID(uniqueID);
         if (cucumberFeature == null) {
             client.send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
@@ -217,9 +217,9 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         jUnitReporter.eof();
 
 
-        System.out.println("Requesting new feature");
+        logger.info("Requesting new feature");
         client.send(new Message(MessageID.REQUEST_FEATURE));
-        System.out.println("Feature requested");
+        logger.info("Feature requested");
     }
 
     @Override
