@@ -27,9 +27,6 @@ public class GridServerHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e) throws Exception {
-        if (e instanceof ChannelStateEvent) {
-            logger.log(Level.SEVERE, "Error handling upstream", e);
-        }
         super.handleUpstream(ctx, e);
     }
 
@@ -73,7 +70,7 @@ public class GridServerHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
-        e.getCause().printStackTrace();
+        logger.log(Level.SEVERE, "Exception caught", e.getCause());
         e.getChannel().close();
     }
 }

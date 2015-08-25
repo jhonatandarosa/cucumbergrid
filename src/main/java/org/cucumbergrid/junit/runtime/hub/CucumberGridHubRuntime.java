@@ -141,7 +141,12 @@ public class CucumberGridHubRuntime extends CucumberGridRuntime implements Cucum
     @Override
     public void onDataReceived(Channel channel, Message message) {
 
-        Message response = process(channel, message);
+        Message response = null;
+        try {
+            response = process(channel, message);
+        } catch (RuntimeException e) {
+            logger.log(Level.SEVERE, "Error processing message: " + message, e);
+        }
         if (response != null) {
             server.send(channel, response);
         }

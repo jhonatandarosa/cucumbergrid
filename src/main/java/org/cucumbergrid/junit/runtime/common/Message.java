@@ -23,4 +23,9 @@ public class Message implements Serializable {
     public <T extends Serializable> T getData() {
         return (T)data;
     }
+
+    @Override
+    public String toString() {
+        return "Message["+id+"]{"+data+"}";
+    }
 }
