@@ -261,12 +261,47 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
         @Override
         public void testFailure(Failure failure) throws Exception {
+            handleFailure(failure);
             sendMessage(MessageID.TEST_FAILURE, failure);
         }
 
         @Override
         public void testAssumptionFailure(Failure failure) {
+            handleFailure(failure);
             sendMessage(MessageID.TEST_ASSUMPTION_FAILURE, failure);
         }
+    }
+
+    private void handleFailureException(Throwable exception) {
+        List<StackTraceElement> list = new ArrayList<>();
+        boolean remove = false;
+
+        int i = 0;
+        for (StackTraceElement ste : exception.getStackTrace()) {
+            if (ste.getClassName().startsWith("org.jboss.netty")) {
+                remove = true;
+                i++;
+            } else {
+                if (remove) {
+                    StackTraceElement netty = new StackTraceElement("org.jboss.netty", "<supressed " + i + " exceptions>", null, 0);
+                    list.add(netty);
+                    remove = false;
+                    i = 0;
+                }
+            }
+            if (!remove) {
+                list.add(ste);
+            }
+        }
+        exception.setStackTrace(list.toArray(new StackTraceElement[list.size()]));
+        Throwable cause = exception.getCause();
+        if (cause != null) {
+            handleFailureException(cause);
+        }
+    }
+
+    private void handleFailure(Failure failure) {
+        Throwable exception = failure.getException();
+        handleFailureException(exception);
     }
 }
