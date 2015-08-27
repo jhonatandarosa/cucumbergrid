@@ -137,6 +137,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         client.init();
 
         if (!client.isConnected()) return;
+        nodeInfo.setAddress(client.getAddress().toString());
 
         client.send(new Message(MessageID.NODE_INFO, nodeInfo));
 

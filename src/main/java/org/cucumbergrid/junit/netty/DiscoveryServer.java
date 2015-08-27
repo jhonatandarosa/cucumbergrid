@@ -4,7 +4,6 @@ import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 import java.net.InetSocketAddress;
-import org.cucumbergrid.junit.sysinfo.SysInfo;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -71,12 +70,5 @@ public class DiscoveryServer {
 
     public InetSocketAddress getServerAddress() {
         return serverAddress;
-    }
-
-    public static void main(String[] args) {
-        DiscoveryServer server = new DiscoveryServer(3299);
-        InetSocketAddress inetSocketAddress = new InetSocketAddress(SysInfo.getInstance().getAddress(), 3299);
-        server.setServerAddress(inetSocketAddress);
-        server.start();
     }
 }
