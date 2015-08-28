@@ -1,7 +1,8 @@
 package org.cucumbergrid.junit.netty;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,15 +38,15 @@ public class DiscoveryClient {
                 if (msg.getID() == MessageID.DISCOVERY) {
                     DiscoveryData discoveryData = msg.getData();
                     logger.info("Address discovered: " + discoveryData);
-                    discoveryDataList.add(discoveryData);
                     if ((gridId != null && gridId.equals(discoveryData.getGridId())) ||
                         gridId == discoveryData.getGridId()) {
                         found = discoveryData;
                         logger.info("Grid id matches, closing discovery client...");
                         e.getChannel().close();
-                    } else {
+                    } else if (!discoveryDataMap.containsKey(discoveryData.getGridId())){
                         logger.info("Discovered address does not match the grid id: " + gridId);
                     }
+                    discoveryDataMap.put(discoveryData.getGridId(), discoveryData);
                 }
             }
         }
@@ -56,23 +57,24 @@ public class DiscoveryClient {
             e.getChannel().close();
         }
     };
-
     private int port;
     private int discoveryTimeout;
-    private List<DiscoveryData> discoveryDataList = new ArrayList<>();
     private DiscoveryData found;
     private String gridId;
+    private Timer timer;
+    private HashMap<String, DiscoveryData> discoveryDataMap = new HashMap<>();
 
     public DiscoveryClient(int port, int discoveryTimeout) {
         this.port = port;
         this.discoveryTimeout = discoveryTimeout;
+        this.timer = new Timer(true);
     }
 
     public InetSocketAddress discover(String gridId) {
         this.gridId = gridId;
         logger.info("starting discovery service with grid id " + gridId);
         found = null;
-        discoveryDataList.clear();
+        discoveryDataMap.clear();
         ConnectionlessBootstrap bootstrap = new ConnectionlessBootstrap(
                 new NioDatagramChannelFactory(Executors.newCachedThreadPool()));
         try {
@@ -98,19 +100,30 @@ public class DiscoveryClient {
             // truncate and IPv6 routers drop a large packet.  That's why it is
             // safe to send small packets in UDP.
             bootstrap.setOption("receiveBufferSizePredictorFactory", new FixedReceiveBufferSizePredictorFactory(1024));
-            DatagramChannel c = (DatagramChannel) bootstrap.bind(new InetSocketAddress(0));
+            final DatagramChannel c = (DatagramChannel) bootstrap.bind(new InetSocketAddress(0));
 
-            Message msg = new Message(MessageID.DISCOVERY);
-            c.write(msg, new InetSocketAddress("255.255.255.255", port));
+            timer.scheduleAtFixedRate(new TimerTask() {
+                @Override
+                public void run() {
+                    logger.info("Sending discovery message...");
+                    Message msg = new Message(MessageID.DISCOVERY);
+                    c.write(msg, new InetSocketAddress("255.255.255.255", port));
+                }
+            },0, 5000);
 
-            if (!c.getCloseFuture().await(discoveryTimeout)) {
-                logger.warning("Discover request timed out.");
-                c.close().awaitUninterruptibly();
+            if (discoveryTimeout == -1) {
+                c.getCloseFuture().awaitUninterruptibly();
+            } else {
+                if (!c.getCloseFuture().await(discoveryTimeout)) {
+                    logger.warning("Discover request timed out");
+                    c.close().awaitUninterruptibly();
+                }
             }
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Discovery interrupted", e);
         } finally {
             bootstrap.releaseExternalResources();
+            timer.cancel();
         }
 
         return found != null ? found.getAddress() : null;
