@@ -1,5 +1,9 @@
 package org.cucumbergrid.junit.runtime.node;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+
 import cucumber.runtime.ClassFinder;
 import cucumber.runtime.Runtime;
 import cucumber.runtime.RuntimeOptions;
@@ -11,12 +15,15 @@ import cucumber.runtime.junit.JUnitReporter;
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
 import cucumber.runtime.model.CucumberTagStatement;
+import java.io.IOException;
+import java.io.Serializable;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runner.NodePropertyRetriever;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntimeOptionsFactory;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
+import org.cucumbergrid.junit.runtime.common.FeatureListener;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
 import org.cucumbergrid.junit.runtime.common.NodeInfo;
@@ -29,12 +36,6 @@ import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.InitializationError;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
 
 public class CucumberGridNodeRuntime extends CucumberGridRuntime implements CucumberGridClientHandler {
 
@@ -137,10 +138,11 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         client.init();
 
         if (!client.isConnected()) return;
+        nodeInfo.setAddress(client.getAddress().toString());
 
-        client.send(new Message(MessageID.NODE_INFO, nodeInfo));
+        send(new Message(MessageID.NODE_INFO, nodeInfo));
 
-        client.send(new Message(MessageID.CUCUMBER_OPTIONS));
+        send(new Message(MessageID.CUCUMBER_OPTIONS));
 
         // server has features to execute
         while (client.isConnected()) {
@@ -168,10 +170,10 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
                 onCucumberOptions(message);
                 break;
             case NO_MORE_FEATURES:
-                System.out.println("no more features");
+                logger.info("no more features");
                 break;
             case SHUTDOWN:
-                System.out.println("Shutdown received...");
+                logger.info("Shutdown received...");
                 client.shutdown();
                 break;
         }
@@ -187,16 +189,22 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
             e.printStackTrace();
         }
 
-        client.send(new Message(MessageID.REQUEST_FEATURE));
+        send(new Message(MessageID.REQUEST_FEATURE));
     }
 
     private void onExecuteFeature(Message message) throws InitializationError {
         Serializable uniqueID = message.getData();
-        System.out.println("Execute feature " + uniqueID);
+        logger.info("Execute feature " + uniqueID);
         CucumberFeature cucumberFeature = getFeatureByID(uniqueID);
         if (cucumberFeature == null) {
-            client.send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
+            send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
             return;
+        }
+
+        ReportAppender reportAppender = new ReportAppender(this);
+        FeatureListener featureListener = getTestInstanceAs(FeatureListener.class);
+        if (featureListener != null) {
+            featureListener.onBeforeFeature(cucumberFeature.getGherkinFeature());
         }
 
         jUnitReporter.uri(cucumberFeature.getPath());
@@ -214,12 +222,16 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         }
         currentNotifier.fireTestFinished(featureDescription);
 
+        if (featureListener != null) {
+            featureListener.onAfterFeature(cucumberFeature.getGherkinFeature(), reportAppender);
+        }
+
         jUnitReporter.eof();
 
 
-        System.out.println("Requesting new feature");
-        client.send(new Message(MessageID.REQUEST_FEATURE));
-        System.out.println("Feature requested");
+        logger.info("Requesting new feature");
+        send(new Message(MessageID.REQUEST_FEATURE));
+        logger.info("Feature requested");
     }
 
     @Override
@@ -231,17 +243,21 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         }
     }
 
+    void send(Message msg) {
+        client.send(msg);
+    }
+
     public class CucumberGridRunListener extends RunListener {
         void sendMessage(MessageID messageID, Description description) {
 
             Serializable uniqueID = CucumberUtils.getDescriptionUniqueID(description);
             //new Throwable(uniqueID.toString()).printStackTrace();
-            client.send(new Message(messageID, uniqueID));
+            send(new Message(messageID, uniqueID));
 
         }
 
         void sendMessage(MessageID messageID, Serializable value) {
-            client.send(new Message(messageID, value));
+            send(new Message(messageID, value));
         }
 
         @Override
@@ -261,12 +277,47 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
 
         @Override
         public void testFailure(Failure failure) throws Exception {
+            handleFailure(failure);
             sendMessage(MessageID.TEST_FAILURE, failure);
         }
 
         @Override
         public void testAssumptionFailure(Failure failure) {
+            handleFailure(failure);
             sendMessage(MessageID.TEST_ASSUMPTION_FAILURE, failure);
         }
+    }
+
+    private void handleFailureException(Throwable exception) {
+        List<StackTraceElement> list = new ArrayList<>();
+        boolean remove = false;
+
+        int i = 0;
+        for (StackTraceElement ste : exception.getStackTrace()) {
+            if (ste.getClassName().startsWith("org.jboss.netty")) {
+                remove = true;
+                i++;
+            } else {
+                if (remove) {
+                    StackTraceElement netty = new StackTraceElement("org.jboss.netty", "<supressed " + i + " exceptions>", null, 0);
+                    list.add(netty);
+                    remove = false;
+                    i = 0;
+                }
+            }
+            if (!remove) {
+                list.add(ste);
+            }
+        }
+        exception.setStackTrace(list.toArray(new StackTraceElement[list.size()]));
+        Throwable cause = exception.getCause();
+        if (cause != null) {
+            handleFailureException(cause);
+        }
+    }
+
+    private void handleFailure(Failure failure) {
+        Throwable exception = failure.getException();
+        handleFailureException(exception);
     }
 }

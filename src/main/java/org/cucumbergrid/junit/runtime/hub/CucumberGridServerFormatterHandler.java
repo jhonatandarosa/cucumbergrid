@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 import gherkin.formatter.model.Background;
 import gherkin.formatter.model.Examples;
@@ -23,6 +24,8 @@ public class CucumberGridServerFormatterHandler {
     private CucumberGridHubRuntime runtime;
     private CucumberGridReporter jUnitReporter;
     private ConcurrentHashMap<Integer, List<FormatMessage>> messages = new ConcurrentHashMap<>();
+    private CucumberGridFeature currentFeature;
+    private Logger logger = Logger.getLogger(getClass().getName());
 
     public CucumberGridServerFormatterHandler(CucumberGridHubRuntime runtime, CucumberGridReporter jUnitReporter) {
         this.runtime = runtime;
@@ -110,6 +113,9 @@ public class CucumberGridServerFormatterHandler {
             case EOF:
                 onEOF(message);
                 break;
+            case FEATURE_EXTRA_INFO:
+                onFeatureExtraInfo(message);
+                break;
 
             // Reporter interface
             case BEFORE:
@@ -131,6 +137,14 @@ public class CucumberGridServerFormatterHandler {
                 onWrite(message);
                 break;
         }
+    }
+
+    private void onFeatureExtraInfo(FormatMessage message) {
+        if (currentFeature == null) {
+            logger.warning("Attempting to add extra info but feature does not started");
+            return;
+        }
+        currentFeature.addReportInfo(message.<String>getData(0), message.getData(1));
     }
 
     /////////////////////
@@ -186,12 +200,12 @@ public class CucumberGridServerFormatterHandler {
 
     private void onFeature(Integer channelId, FormatMessage message) {
         Feature feature = message.getData(0);
-        CucumberGridFeature gridFeature = new CucumberGridFeature(feature);
+        currentFeature = new CucumberGridFeature(feature);
 
         NodeInfo nodeInfo = runtime.getNodeInfo(channelId);
 
-        gridFeature.addReportInfo("nodeInfo", nodeInfo);
-        jUnitReporter.feature(gridFeature);
+        currentFeature.addReportInfo("nodeInfo", nodeInfo);
+        jUnitReporter.feature(currentFeature);
     }
 
     private void onScenarioOutline(FormatMessage message) {
@@ -230,6 +244,7 @@ public class CucumberGridServerFormatterHandler {
     }
 
     private void onEOF(FormatMessage message) {
+        currentFeature = null;
         jUnitReporter.eof();
     }
 }

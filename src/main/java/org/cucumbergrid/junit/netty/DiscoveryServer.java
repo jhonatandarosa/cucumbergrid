@@ -1,9 +1,9 @@
 package org.cucumbergrid.junit.netty;
 
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 import java.net.InetSocketAddress;
-import org.cucumbergrid.junit.sysinfo.SysInfo;
 import org.jboss.netty.bootstrap.ConnectionlessBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -15,6 +15,8 @@ import org.jboss.netty.handler.codec.serialization.ObjectDecoder;
 import org.jboss.netty.handler.codec.serialization.ObjectEncoder;
 
 public class DiscoveryServer {
+
+    private Logger logger = Logger.getLogger(DiscoveryServer.class.getName());
 
     private int port;
     private Channel channel;
@@ -53,7 +55,7 @@ public class DiscoveryServer {
         InetSocketAddress localAddress = new InetSocketAddress(port);
         channel = bootstrap.bind(localAddress);
 
-        System.out.println("Discovery server listening to " + localAddress);
+        logger.info("Discovery server listening to " + localAddress);
     }
 
     public void shutdown() {
@@ -68,12 +70,5 @@ public class DiscoveryServer {
 
     public InetSocketAddress getServerAddress() {
         return serverAddress;
-    }
-
-    public static void main(String[] args) {
-        DiscoveryServer server = new DiscoveryServer(3299);
-        InetSocketAddress inetSocketAddress = new InetSocketAddress(SysInfo.getInstance().getAddress(), 3299);
-        server.setServerAddress(inetSocketAddress);
-        server.start();
     }
 }

@@ -2,11 +2,14 @@ package org.cucumbergrid.junit.runtime.node.client;
 
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import org.cucumbergrid.junit.netty.DiscoveryClient;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
+import org.cucumbergrid.junit.runtime.common.GridProperties;
 import org.cucumbergrid.junit.runtime.node.CucumberGridClientHandler;
 import org.cucumbergrid.junit.utils.StringUtils;
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -16,6 +19,8 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 
 public class GridClient {
+
+    private Logger logger = Logger.getLogger(getClass().getName());
 
     private int discoveryServicePort;
     private int discoveryServiceTimeout;
@@ -41,9 +46,9 @@ public class GridClient {
     public void init() {
         if (StringUtils.isNullOrEmpty(hubAddress)) {
             DiscoveryClient discoveryClient = new DiscoveryClient(discoveryServicePort, discoveryServiceTimeout);
-            InetSocketAddress address = discoveryClient.discover();
+            InetSocketAddress address = discoveryClient.discover(GridProperties.getGridId());
             if (address == null) {
-                throw new IllegalStateException("Hub address not specified and discovery there's no result in server discovery");
+                throw new IllegalStateException("Hub address not specified and there's no result in server discovery");
             }
             hubAddress = address.getHostString();
             port = address.getPort();
@@ -84,7 +89,7 @@ public class GridClient {
             lastFuture = channel.write(pendingMessages.poll());
         }
         if (shutdownScheduled && pendingMessages.isEmpty()) {
-            System.out.println("Shutting down...");
+            logger.info("Shutting down...");
             if (lastFuture != null) {
                 lastFuture.addListener(new ChannelFutureListener() {
                     @Override
@@ -93,7 +98,7 @@ public class GridClient {
                     }
                 });
             } else {
-                System.out.println("closing...");
+                logger.info("closing...");
                 channel.close();
             }
         }
@@ -114,6 +119,10 @@ public class GridClient {
             channel.close();
             pendingMessages.clear();
         }
+    }
+
+    public SocketAddress getAddress() {
+        return channel.getLocalAddress();
     }
 
     public void releaseExternalResources() {

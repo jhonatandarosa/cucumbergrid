@@ -3,6 +3,7 @@ package org.cucumbergrid.junit.runtime.hub;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
@@ -14,6 +15,8 @@ import org.cucumbergrid.junit.utils.CollectionUtils;
 import org.jboss.netty.channel.Channel;
 
 public class CucumberGridServerAdminHandler {
+
+    private Logger log = Logger.getLogger(getClass().getName());
 
     private CucumberGridHubRuntime runtime;
 
@@ -48,7 +51,7 @@ public class CucumberGridServerAdminHandler {
     }
 
     private void onFinish(boolean gracefully) {
-        System.out.println("Finish requested by admin [Gracefully: ] " + gracefully);
+        log.info("Finish requested by admin [Gracefully: ] " + gracefully);
         runtime.finish(gracefully);
     }
 }
