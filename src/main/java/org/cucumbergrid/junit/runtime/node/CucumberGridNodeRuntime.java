@@ -23,6 +23,7 @@ import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntimeOptionsFactory;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
+import org.cucumbergrid.junit.runtime.common.FeatureListener;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
 import org.cucumbergrid.junit.runtime.common.NodeInfo;
@@ -139,9 +140,9 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         if (!client.isConnected()) return;
         nodeInfo.setAddress(client.getAddress().toString());
 
-        client.send(new Message(MessageID.NODE_INFO, nodeInfo));
+        send(new Message(MessageID.NODE_INFO, nodeInfo));
 
-        client.send(new Message(MessageID.CUCUMBER_OPTIONS));
+        send(new Message(MessageID.CUCUMBER_OPTIONS));
 
         // server has features to execute
         while (client.isConnected()) {
@@ -188,7 +189,7 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
             e.printStackTrace();
         }
 
-        client.send(new Message(MessageID.REQUEST_FEATURE));
+        send(new Message(MessageID.REQUEST_FEATURE));
     }
 
     private void onExecuteFeature(Message message) throws InitializationError {
@@ -196,8 +197,14 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         logger.info("Execute feature " + uniqueID);
         CucumberFeature cucumberFeature = getFeatureByID(uniqueID);
         if (cucumberFeature == null) {
-            client.send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
+            send(new Message(MessageID.UNKNOWN_FEATURE, uniqueID));
             return;
+        }
+
+        ReportAppender reportAppender = new ReportAppender(this);
+        FeatureListener featureListener = getTestInstanceAs(FeatureListener.class);
+        if (featureListener != null) {
+            featureListener.onBeforeFeature(cucumberFeature.getGherkinFeature());
         }
 
         jUnitReporter.uri(cucumberFeature.getPath());
@@ -215,11 +222,15 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         }
         currentNotifier.fireTestFinished(featureDescription);
 
+        if (featureListener != null) {
+            featureListener.onAfterFeature(cucumberFeature.getGherkinFeature(), reportAppender);
+        }
+
         jUnitReporter.eof();
 
 
         logger.info("Requesting new feature");
-        client.send(new Message(MessageID.REQUEST_FEATURE));
+        send(new Message(MessageID.REQUEST_FEATURE));
         logger.info("Feature requested");
     }
 
@@ -232,17 +243,21 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         }
     }
 
+    void send(Message msg) {
+        client.send(msg);
+    }
+
     public class CucumberGridRunListener extends RunListener {
         void sendMessage(MessageID messageID, Description description) {
 
             Serializable uniqueID = CucumberUtils.getDescriptionUniqueID(description);
             //new Throwable(uniqueID.toString()).printStackTrace();
-            client.send(new Message(messageID, uniqueID));
+            send(new Message(messageID, uniqueID));
 
         }
 
         void sendMessage(MessageID messageID, Serializable value) {
-            client.send(new Message(messageID, value));
+            send(new Message(messageID, value));
         }
 
         @Override

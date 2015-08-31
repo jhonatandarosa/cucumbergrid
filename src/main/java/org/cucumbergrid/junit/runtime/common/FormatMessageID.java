@@ -4,6 +4,7 @@ public enum FormatMessageID {
     // Formatter interface
     URI,
     FEATURE,
+    FEATURE_EXTRA_INFO,
     SCENARIO_OUTLINE,
     EXAMPLES,
     START_SCENARIO_LIFE_CYCLE,

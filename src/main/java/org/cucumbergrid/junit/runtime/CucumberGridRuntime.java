@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import cucumber.runtime.RuntimeOptions;
@@ -23,6 +24,7 @@ import org.junit.runner.notification.RunNotifier;
 public abstract class CucumberGridRuntime {
 
     protected Class clazz;
+    protected Object testInstance;
     protected List<CucumberFeature> cucumberFeatures;
     private Map<Serializable, Description> descriptionMap = new HashMap<>();
     protected Logger logger = Logger.getLogger(getClass().getName());
@@ -31,6 +33,19 @@ public abstract class CucumberGridRuntime {
 
     public CucumberGridRuntime(Class clazz) {
         this.clazz = clazz;
+
+        try {
+            testInstance = clazz.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            logger.log(Level.SEVERE, "Error instantiating test class " + clazz, e);
+        }
+    }
+
+    public <T> T getTestInstanceAs(Class<T> clazz) {
+        if (clazz.isInstance(testInstance)) {
+            return (T)testInstance;
+        }
+        return null;
     }
 
     protected void loadFeatures(CucumberGridRuntimeOptionsFactory factory) {
