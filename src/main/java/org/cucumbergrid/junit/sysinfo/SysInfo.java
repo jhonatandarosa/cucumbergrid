@@ -3,12 +3,14 @@ package org.cucumbergrid.junit.sysinfo;
 
 import java.util.Enumeration;
 
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import org.cucumbergrid.junit.utils.IOUtils;
 
 public class SysInfo {
 
@@ -33,12 +35,14 @@ public class SysInfo {
         operatingSystem.setArch(OSArch.getByOSArch());
         operatingSystem.setUsername(System.getProperty("user.name"));
 
+        String hostname = null;
         try {
-            String hostname = InetAddress.getLocalHost().getHostName();
-            operatingSystem.setHostname(hostname);
+            hostname = InetAddress.getLocalHost().getHostName();
         } catch (UnknownHostException e) {
-            e.printStackTrace();
+            //ignore
+            hostname = NativeHostnameFinder.find();
         }
+        operatingSystem.setHostname(hostname);
 
 
 
@@ -73,5 +77,20 @@ public class SysInfo {
 
     public InetAddress getAddress() {
         return address;
+    }
+
+    private static class NativeHostnameFinder {
+
+        static String find() {
+            Runtime run = Runtime.getRuntime();
+            Process proc = null;
+            try {
+                proc = run.exec("hostname");
+                return IOUtils.readFully(proc.getInputStream());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
     }
 }
