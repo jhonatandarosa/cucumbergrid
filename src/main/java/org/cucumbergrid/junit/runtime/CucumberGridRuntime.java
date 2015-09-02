@@ -137,7 +137,11 @@ public abstract class CucumberGridRuntime {
     }
 
     protected Description getDescriptionByUniqueID(Serializable uniqueID) {
-        return descriptionMap.get(uniqueID);
+        Description description = descriptionMap.get(uniqueID);
+        if (description == null) {
+            logger.warning("Description with id " + uniqueID + " not found!");
+        }
+        return description;
     }
 
     public abstract Description getDescription();

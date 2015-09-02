@@ -114,7 +114,8 @@ public class CucumberGridServerFormatterHandler {
                 onEOF(message);
                 break;
             case FEATURE_EXTRA_INFO:
-                onFeatureExtraInfo(message);
+//                onFeatureExtraInfo(message);
+                logger.warning("Extra feature info ignored..." + message);
                 break;
 
             // Reporter interface

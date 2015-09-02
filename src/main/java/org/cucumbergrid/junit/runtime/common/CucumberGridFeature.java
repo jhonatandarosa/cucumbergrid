@@ -8,8 +8,7 @@ import gherkin.formatter.model.Feature;
 public class CucumberGridFeature extends Feature {
 
     private Feature feature;
-    private Map<String, Object> featureMap = new HashMap<>();
-    private boolean converted;
+    private Map<String, Object> extraInfo = new HashMap<>();
 
     public CucumberGridFeature(Feature feature) {
         super(feature.getComments(), feature.getTags(), feature.getKeyword(), feature.getName(), feature.getDescription(), feature.getLine(), feature.getId());
@@ -17,17 +16,17 @@ public class CucumberGridFeature extends Feature {
     }
 
     public void addReportInfo(String key, Object value) {
-        if (!featureMap.containsKey(key)) {
-            featureMap.put(key, value);
-        }
+        extraInfo.put(key, value);
     }
 
     @Override
     public Map<String, Object> toMap() {
-        if (!converted) {
-            featureMap.putAll(super.toMap());
-            converted = true;
+        Map<String, Object> map = super.toMap();
+        for (String key : extraInfo.keySet()) {
+            if (!map.containsKey(key)) {
+                map.put(key, extraInfo.get(key));
+            }
         }
-        return featureMap;
+        return map;
     }
 }
