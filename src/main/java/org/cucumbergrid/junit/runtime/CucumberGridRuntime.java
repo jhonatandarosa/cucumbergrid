@@ -23,6 +23,7 @@ import org.junit.runner.notification.RunNotifier;
 
 public abstract class CucumberGridRuntime {
 
+    protected Description description;
     protected Class clazz;
     protected Object testInstance;
     protected List<CucumberFeature> cucumberFeatures;
@@ -62,6 +63,7 @@ public abstract class CucumberGridRuntime {
             }
         });
 
+        description = getDescription();
         featureByID = new HashMap<>();
         for (CucumberFeature feature : cucumberFeatures) {
             featureByID.put(CucumberUtils.getUniqueID(feature), feature);

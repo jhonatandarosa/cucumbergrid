@@ -35,7 +35,6 @@ import org.junit.runner.notification.RunNotifier;
 
 public class CucumberGridHubRuntime extends CucumberGridRuntime implements CucumberGridServerHandler {
 
-    private Description description;
     private GridServer server;
     private final LinkedList<CucumberFeature> featuresToExecute;
     private ConcurrentLinkedDeque<CucumberFeature> featuresExecuted;

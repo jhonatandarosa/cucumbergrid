@@ -39,7 +39,6 @@ import org.junit.runners.model.InitializationError;
 public class CucumberGridNodeRuntime extends CucumberGridRuntime implements CucumberGridClientHandler {
 
     private GridClient client;
-    private Description description;
     private RunNotifier currentNotifier;
     private JUnitReporter jUnitReporter;
     private Runtime runtime;
