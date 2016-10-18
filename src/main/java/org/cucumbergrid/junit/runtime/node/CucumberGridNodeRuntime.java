@@ -1,22 +1,11 @@
 package org.cucumbergrid.junit.runtime.node;
 
+import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
-import cucumber.runtime.ClassFinder;
-import cucumber.runtime.Runtime;
-import cucumber.runtime.RuntimeOptions;
-import cucumber.runtime.io.MultiLoader;
-import cucumber.runtime.io.ResourceLoader;
-import cucumber.runtime.io.ResourceLoaderClassFinder;
-import cucumber.runtime.junit.ExecutionUnitRunner;
-import cucumber.runtime.junit.JUnitReporter;
-import cucumber.runtime.model.CucumberFeature;
-import cucumber.runtime.model.CucumberScenario;
-import cucumber.runtime.model.CucumberTagStatement;
-import java.io.IOException;
-import java.io.Serializable;
 import org.cucumbergrid.junit.runner.CucumberGridNode;
 import org.cucumbergrid.junit.runner.NodePropertyRetriever;
 import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
@@ -35,6 +24,20 @@ import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.InitializationError;
+
+import cucumber.runtime.ClassFinder;
+import cucumber.runtime.Runtime;
+import cucumber.runtime.RuntimeOptions;
+import cucumber.runtime.io.MultiLoader;
+import cucumber.runtime.io.ResourceLoader;
+import cucumber.runtime.io.ResourceLoaderClassFinder;
+import cucumber.runtime.junit.ExecutionUnitRunner;
+import cucumber.runtime.junit.JUnitReporter;
+import cucumber.runtime.model.CucumberExamples;
+import cucumber.runtime.model.CucumberFeature;
+import cucumber.runtime.model.CucumberScenario;
+import cucumber.runtime.model.CucumberScenarioOutline;
+import cucumber.runtime.model.CucumberTagStatement;
 
 public class CucumberGridNodeRuntime extends CucumberGridRuntime implements CucumberGridClientHandler {
 
@@ -216,6 +219,17 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
                 CucumberScenario cucumberScenario = (CucumberScenario)cucumberTagStatement;
                 ExecutionUnitRunner runner = new CucumberGridExecutionUnitRunner(this, runtime, cucumberScenario, jUnitReporter);
                 runner.run(currentNotifier);
+            } else if (cucumberTagStatement instanceof CucumberScenarioOutline) {
+                CucumberScenarioOutline cucumberScenarioOutline = (CucumberScenarioOutline) cucumberTagStatement;
+
+                for (CucumberExamples cucumberExamples : cucumberScenarioOutline.getCucumberExamplesList()) {
+
+                    for (CucumberScenario cucumberScenario : cucumberExamples.createExampleScenarios()) {
+                        ExecutionUnitRunner runner = new CucumberGridExecutionUnitRunner(this, runtime, cucumberScenario, jUnitReporter);
+                        runner.run(currentNotifier);
+                    }
+
+                }
             }
         }
         currentNotifier.fireTestFinished(featureDescription);

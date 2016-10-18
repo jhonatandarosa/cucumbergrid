@@ -1,12 +1,14 @@
 package org.cucumbergrid.junit.runtime;
 
+import java.io.Serializable;
 import java.lang.reflect.Field;
+
+import org.junit.runner.Description;
 
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
+import cucumber.runtime.model.CucumberScenarioOutline;
 import gherkin.formatter.model.Step;
-import java.io.Serializable;
-import org.junit.runner.Description;
 
 public class CucumberUtils {
 
@@ -22,6 +24,10 @@ public class CucumberUtils {
 
     public static String getUniqueID(CucumberScenario cucumberScenario) {
         return normalizeId(cucumberScenario.getGherkinModel().getId());
+    }
+
+    public static String getUniqueID(CucumberScenarioOutline cucumberScenarioOutline) {
+        return normalizeId(cucumberScenarioOutline.getGherkinModel().getId());
     }
 
     public static String getUniqueID(CucumberScenario cucumberScenario, Step step) {

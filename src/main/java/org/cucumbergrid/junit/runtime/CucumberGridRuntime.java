@@ -1,5 +1,6 @@
 package org.cucumbergrid.junit.runtime;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -8,18 +9,19 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.junit.runner.Description;
+import org.junit.runner.notification.RunNotifier;
+
 import cucumber.runtime.RuntimeOptions;
 import cucumber.runtime.io.MultiLoader;
 import cucumber.runtime.io.ResourceLoader;
+import cucumber.runtime.model.CucumberExamples;
 import cucumber.runtime.model.CucumberFeature;
 import cucumber.runtime.model.CucumberScenario;
 import cucumber.runtime.model.CucumberScenarioOutline;
 import cucumber.runtime.model.CucumberTagStatement;
 import gherkin.formatter.model.Feature;
 import gherkin.formatter.model.Step;
-import java.io.Serializable;
-import org.junit.runner.Description;
-import org.junit.runner.notification.RunNotifier;
 
 public abstract class CucumberGridRuntime {
 
@@ -88,7 +90,8 @@ public abstract class CucumberGridRuntime {
                     Description scenarioDescription = getDescription((CucumberScenario) cucumberTagStatement);
                     description.addChild(scenarioDescription);
                 } else if (cucumberTagStatement instanceof CucumberScenarioOutline) {
-                    logger.warning("scenario outline " + cucumberTagStatement);
+                    Description scenarioDescription = getDescription((CucumberScenarioOutline) cucumberTagStatement);
+                    description.addChild(scenarioDescription);
                 }
             }
 
@@ -135,6 +138,43 @@ public abstract class CucumberGridRuntime {
             description = Description.createTestDescription(cucumberScenario.getVisualName(), step.getKeyword() + step.getName(), uniqueID);
             descriptionMap.put(uniqueID, description);
         }
+        return description;
+    }
+
+    protected Description getDescription(CucumberScenarioOutline cucumberScenarioOutline) {
+        String uniqueID = CucumberUtils.getUniqueID(cucumberScenarioOutline);
+        Description description = descriptionMap.get(uniqueID);
+        if (description == null) {
+            String name = cucumberScenarioOutline.getVisualName();
+            description = Description.createSuiteDescription(name, uniqueID);
+
+            List<CucumberExamples> examples = cucumberScenarioOutline.getCucumberExamplesList();
+
+            for (int i = 0; i < examples.size(); i++) {
+                CucumberExamples example = examples.get(i);
+                description.addChild(getDescription(cucumberScenarioOutline, example, i));
+            }
+
+            descriptionMap.put(uniqueID, description);
+        }
+
+        return description;
+    }
+
+    private Description getDescription(CucumberScenarioOutline cucumberScenarioOutline, CucumberExamples example, int exampleIndex) {
+        String uniqueID = CucumberUtils.getUniqueID(cucumberScenarioOutline) + "-example"+exampleIndex;
+        Description description = descriptionMap.get(uniqueID);
+        if (description == null) {
+
+            description = Description.createSuiteDescription(example.getExamples().getKeyword(), uniqueID);
+
+            for (CucumberScenario cucumberScenario : example.createExampleScenarios()) {
+                description.addChild(getDescription(cucumberScenario));
+            }
+
+            descriptionMap.put(uniqueID, description);
+        }
+
         return description;
     }
 
