@@ -9,6 +9,7 @@ public class CucumberGridFeature extends Feature {
 
     private Feature feature;
     private Map<String, Object> extraInfo = new HashMap<>();
+    private Map<String, Object> featureMap;
 
     public CucumberGridFeature(Feature feature) {
         super(feature.getComments(), feature.getTags(), feature.getKeyword(), feature.getName(), feature.getDescription(), feature.getLine(), feature.getId());
@@ -16,17 +17,25 @@ public class CucumberGridFeature extends Feature {
     }
 
     public void addReportInfo(String key, Object value) {
-        extraInfo.put(key, value);
+        if (featureMap == null) {
+            extraInfo.put(key, value);
+        } else {
+            if (!featureMap.containsKey(key)) {
+                featureMap.put(key, value);
+            }
+        }
     }
 
     @Override
     public Map<String, Object> toMap() {
-        Map<String, Object> map = super.toMap();
-        for (String key : extraInfo.keySet()) {
-            if (!map.containsKey(key)) {
-                map.put(key, extraInfo.get(key));
+        if (featureMap == null) {
+            featureMap = super.toMap();
+            for (String key : extraInfo.keySet()) {
+                if (!featureMap.containsKey(key)) {
+                    featureMap.put(key, extraInfo.get(key));
+                }
             }
         }
-        return map;
+        return featureMap;
     }
 }
