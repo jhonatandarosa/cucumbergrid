@@ -6,6 +6,11 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
+import org.cucumbergrid.junit.runtime.common.CucumberGridFeature;
+import org.cucumbergrid.junit.runtime.common.FormatMessage;
+import org.cucumbergrid.junit.runtime.common.FormatMessageID;
+import org.cucumbergrid.junit.runtime.common.NodeInfo;
+
 import gherkin.formatter.model.Background;
 import gherkin.formatter.model.Examples;
 import gherkin.formatter.model.Feature;
@@ -14,10 +19,6 @@ import gherkin.formatter.model.Result;
 import gherkin.formatter.model.Scenario;
 import gherkin.formatter.model.ScenarioOutline;
 import gherkin.formatter.model.Step;
-import org.cucumbergrid.junit.runtime.common.CucumberGridFeature;
-import org.cucumbergrid.junit.runtime.common.FormatMessage;
-import org.cucumbergrid.junit.runtime.common.FormatMessageID;
-import org.cucumbergrid.junit.runtime.common.NodeInfo;
 
 public class CucumberGridServerFormatterHandler {
 
@@ -114,8 +115,7 @@ public class CucumberGridServerFormatterHandler {
                 onEOF(message);
                 break;
             case FEATURE_EXTRA_INFO:
-//                onFeatureExtraInfo(message);
-                logger.warning("Extra feature info ignored..." + message);
+                onFeatureExtraInfo(message);
                 break;
 
             // Reporter interface

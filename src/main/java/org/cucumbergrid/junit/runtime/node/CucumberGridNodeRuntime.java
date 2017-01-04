@@ -12,6 +12,7 @@ import org.cucumbergrid.junit.runtime.CucumberGridExecutionUnitRunner;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntime;
 import org.cucumbergrid.junit.runtime.CucumberGridRuntimeOptionsFactory;
 import org.cucumbergrid.junit.runtime.CucumberUtils;
+import org.cucumbergrid.junit.runtime.common.FeatureListener;
 import org.cucumbergrid.junit.runtime.common.Message;
 import org.cucumbergrid.junit.runtime.common.MessageID;
 import org.cucumbergrid.junit.runtime.common.NodeInfo;
@@ -202,11 +203,11 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
             return;
         }
 
-//        ReportAppender reportAppender = new ReportAppender(this);
-//        FeatureListener featureListener = getTestInstanceAs(FeatureListener.class);
-//        if (featureListener != null) {
-//            featureListener.onBeforeFeature(cucumberFeature.getGherkinFeature());
-//        }
+        ReportAppender reportAppender = new ReportAppender(this);
+        FeatureListener featureListener = getTestInstanceAs(FeatureListener.class);
+        if (featureListener != null) {
+            featureListener.onBeforeFeature(cucumberFeature.getGherkinFeature());
+        }
 
         jUnitReporter.uri(cucumberFeature.getPath());
         jUnitReporter.feature(cucumberFeature.getGherkinFeature());
@@ -234,9 +235,9 @@ public class CucumberGridNodeRuntime extends CucumberGridRuntime implements Cucu
         }
         currentNotifier.fireTestFinished(featureDescription);
 
-//        if (featureListener != null) {
-//            featureListener.onAfterFeature(cucumberFeature.getGherkinFeature(), reportAppender);
-//        }
+        if (featureListener != null) {
+            featureListener.onAfterFeature(cucumberFeature.getGherkinFeature(), reportAppender);
+        }
 
         jUnitReporter.eof();
 
